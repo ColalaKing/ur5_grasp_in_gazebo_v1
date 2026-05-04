@@ -4,13 +4,15 @@
 
   <arg name="limited" default="true"/>
   <arg name="paused" default="false"/>
-  <arg name="gui" default="true"/>
+  <arg name="gui" default="false"/>
   <arg name="debug" default="false" />
   <arg name="sim" default="true" />
+  <arg name="spawn_scene" default="true" />
+  <arg name="run_app" default="false" />
 
   <!-- startup simulated world -->
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="world_name" default="worlds/empty.world"/>
+    <arg name="world_name" value="$(find ur5_notebook)/launch/initialize.world"/>
     <arg name="paused" value="$(arg paused)"/>
     <arg name="gui" value="$(arg gui)"/>
   </include>
@@ -39,19 +41,19 @@
   </include>
 
   <!-- spawn the conveyor_belt in gazebo -->
-  <node name="spawn_conveyor_belt" pkg="gazebo_ros" type="spawn_model" args="-file $(find ur5_notebook)/urdf/conveyor_belt.urdf -urdf -model conveyor_belt" />
+  <node if="$(arg spawn_scene)" name="spawn_conveyor_belt" pkg="gazebo_ros" type="spawn_model" launch-prefix="$(find ur5_notebook)/scripts/delayed_exec.sh 3" args="-file $(find ur5_notebook)/urdf/conveyor_belt.urdf -urdf -model conveyor_belt" />
   <!-- spawn the conveyor_belt in gazebo -->
-  <node name="bin" pkg="gazebo_ros" type="spawn_model" args="-file $(find ur5_notebook)/urdf/bin.urdf -urdf -model bin -y 0.8 -x -0.5 -z 0.05" />
+  <node if="$(arg spawn_scene)" name="bin" pkg="gazebo_ros" type="spawn_model" launch-prefix="$(find ur5_notebook)/scripts/delayed_exec.sh 5" args="-file $(find ur5_notebook)/urdf/bin.urdf -urdf -model bin -y 0.8 -x -0.5 -z 0.05" />
   <!-- the red blocks spawner node -->
-  <node name="blocks_spawner" pkg="ur5_notebook" type="blocks_spawner" output="screen" />
+  <node if="$(arg run_app)" name="blocks_spawner" pkg="ur5_notebook" type="blocks_spawner" launch-prefix="$(find ur5_notebook)/scripts/delayed_exec.sh 10" output="screen" />
 
   <!-- the cylinder poses publisher node -->
-  <node name="blocks_poses_publisher" pkg="ur5_notebook" type="blocks_poses_publisher" output="screen" />
+  <node if="$(arg run_app)" name="blocks_poses_publisher" pkg="ur5_notebook" type="blocks_poses_publisher" launch-prefix="$(find ur5_notebook)/scripts/delayed_exec.sh 10" output="screen" />
 
   <!-- the cylinder poses publisher node -->
-  <node name="ur5_vision" pkg="ur5_notebook" type="ur5_vision.py" output="screen" />
-  <node name="ur5_mp" pkg="ur5_notebook" type="ur5_mp.py" output="screen" />
-  <node name="ur5_gripper" pkg="ur5_notebook" type="ur5_gripper.py" output="screen"/>
+  <node if="$(arg run_app)" name="ur5_vision" pkg="ur5_notebook" type="ur5_vision.py" launch-prefix="$(find ur5_notebook)/scripts/delayed_exec.sh 12" output="screen" />
+  <node if="$(arg run_app)" name="ur5_mp" pkg="ur5_notebook" type="ur5_mp.py" launch-prefix="$(find ur5_notebook)/scripts/delayed_exec.sh 14" output="screen" />
+  <node if="$(arg run_app)" name="ur5_gripper" pkg="ur5_notebook" type="ur5_gripper.py" launch-prefix="$(find ur5_notebook)/scripts/delayed_exec.sh 14" output="screen"/>
   <!-- for ros control to be used with scara robot -->
 <!--   <param name="/scara_robot_left/robot_description" textfile="$(find two_scara_collaboration)/urdf/scara_robot_left.urdf" /> -->
 
