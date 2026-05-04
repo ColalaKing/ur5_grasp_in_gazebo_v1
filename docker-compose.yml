@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  ur5_grasp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ur5-grasp-kinetic:latest
+    container_name: ur5_grasp_kinetic
+    network_mode: host
+    privileged: true
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - LIBGL_ALWAYS_SOFTWARE=1
+      - GAZEBO_MODEL_PATH=/usr/share/gazebo-7/models:/usr/share/gazebo/models:/root/.gazebo/models
+      - GAZEBO_RESOURCE_PATH=/usr/share/gazebo-7:/usr/share/gazebo
+      - ROS_MASTER_URI=http://localhost:11311
+      - ROS_HOSTNAME=localhost
+    volumes:
+      - ./:/root/arm_ws/src/ur5_grasp_in_gazebo
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ~/.gazebo:/root/.gazebo
+    stdin_open: true
+    tty: true

@@ -84,6 +84,16 @@ class ur5_mp:
  
         # Specify default (idle) joint states
         self.default_joint_states = self.arm.get_current_joint_values()
+        wait_until = rospy.Time.now() + rospy.Duration(10.0)
+        while len(self.default_joint_states) < 6 and rospy.Time.now() < wait_until and not rospy.is_shutdown():
+            rospy.logwarn("Waiting for current joint values from MoveIt...")
+            rospy.sleep(0.5)
+            self.default_joint_states = self.arm.get_current_joint_values()
+
+        if len(self.default_joint_states) < 6:
+            rospy.logwarn("MoveIt returned no current joint values; using configured default joint pose.")
+            self.default_joint_states = [0.0] * 6
+
         self.default_joint_states[0] = -1.57691
         self.default_joint_states[1] = -1.71667
         self.default_joint_states[2] = 1.79266
