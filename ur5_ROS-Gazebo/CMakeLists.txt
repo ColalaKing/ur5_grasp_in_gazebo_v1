@@ -8,6 +8,8 @@ project(ur5_notebook)
 find_package(catkin REQUIRED COMPONENTS gazebo_msgs roscpp geometry_msgs std_srvs std_msgs message_generation)
 # Declare our catkin package.
 
+add_compile_options(-std=c++11)
+
 #add_message files
 add_message_files(FILES blocks_poses.msg)
 add_message_files(FILES Tracker.msg)
@@ -22,7 +24,9 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 # Declare the executable, along with its source files.
 add_executable(blocks_spawner blocks_spawner.cpp)
 add_executable(blocks_poses_publisher blocks_poses_publisher.cpp)
+add_executable(scene_spawner scene_spawner.cpp)
 
 # Specify libraries against which to link.
 target_link_libraries(blocks_spawner ${catkin_LIBRARIES})
 target_link_libraries(blocks_poses_publisher ${catkin_LIBRARIES})
+target_link_libraries(scene_spawner ${catkin_LIBRARIES})
