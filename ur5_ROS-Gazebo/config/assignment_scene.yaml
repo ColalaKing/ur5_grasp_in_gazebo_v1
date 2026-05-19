@@ -1,0 +1,30 @@
+table_x: 0.25
+table_y: 0.0
+table_z: 0.10
+table_size_x: 1.20
+table_size_y: 0.90
+table_size_z: 0.20
+
+block_size_x: 0.06
+block_size_y: 0.06
+block_size_z: 0.04
+block_mass: 0.05
+block_mu: 4.0
+block_spacing: 0.09
+spawn_x_min: 0.34
+spawn_x_max: 0.75
+spawn_y_min: -0.30
+spawn_y_max: 0.28
+
+grid_origin_x: -0.25
+grid_origin_y: -0.22
+grid_spacing_x: 0.18
+grid_spacing_y: 0.18
+grid_cols: 3
+grid_rows: 2
+grid_cell_size: 0.13
+grid_plate_height: 0.004
+
+randomize: true
+seed: 0
+spawn_obstacles: false

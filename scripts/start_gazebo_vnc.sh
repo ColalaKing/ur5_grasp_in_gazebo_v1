@@ -5,8 +5,10 @@ DISPLAY_NUM="${GAZEBO_VNC_DISPLAY:-:99}"
 GEOMETRY="${GAZEBO_VNC_GEOMETRY:-1280x800x24}"
 VNC_PORT="${GAZEBO_VNC_PORT:-5900}"
 VNC_LISTEN="${GAZEBO_VNC_LISTEN:-127.0.0.1}"
-SPAWN_SCENE="${GAZEBO_SPAWN_SCENE:-true}"
-RUN_APP="${GAZEBO_RUN_APP:-false}"
+RANDOMIZE="${GAZEBO_RANDOMIZE:-true}"
+SEED="${GAZEBO_SEED:-0}"
+SPAWN_OBSTACLES="${GAZEBO_SPAWN_OBSTACLES:-false}"
+PAUSED="${GAZEBO_PAUSED:-false}"
 
 export DISPLAY="$DISPLAY_NUM"
 export LIBGL_ALWAYS_SOFTWARE=1
@@ -43,4 +45,9 @@ fi
 echo "Gazebo VNC display is running on port $VNC_PORT."
 echo "Connect from the host with: vncviewer localhost:$VNC_PORT"
 
-roslaunch ur5_notebook initialize.launch gui:=true spawn_scene:="$SPAWN_SCENE" run_app:="$RUN_APP"
+roslaunch ur5_notebook assignment_env.launch \
+  gui:=true \
+  paused:="$PAUSED" \
+  randomize:="$RANDOMIZE" \
+  seed:="$SEED" \
+  spawn_obstacles:="$SPAWN_OBSTACLES"
