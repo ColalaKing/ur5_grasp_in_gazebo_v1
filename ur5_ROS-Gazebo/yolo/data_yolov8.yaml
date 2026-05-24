@@ -1,0 +1,21 @@
+# Ultralytics YOLOv8 digit-block dataset.
+# Keep this file in ur5_ROS-Gazebo/yolo so the relative paths below resolve.
+# If the left-side target grid is visible in images, leave those grid digits
+# unlabeled so YOLO learns them as background instead of graspable blocks.
+
+path: ur5_ROS-Gazebo/yolo
+train: data/train_highres.txt
+val: data/valid_highres.txt
+test:
+
+names:
+  0: "0"
+  1: "1"
+  2: "2"
+  3: "3"
+  4: "4"
+  5: "5"
+  6: "6"
+  7: "7"
+  8: "8"
+  9: "9"

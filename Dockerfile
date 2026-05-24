@@ -53,6 +53,43 @@ RUN apt-get update && apt-get install -y \
     ros-kinetic-usb-cam \
     && rm -rf /var/lib/apt/lists/*
 
+# Ubuntu 16.04's python-opencv is OpenCV 2.4. Add a Python 2 compatible
+# OpenCV 4 wheel so the ROS wrapper and traditional baseline share predictable
+# image encoding, contour, and drawing behavior.
+RUN pip install --no-cache-dir --upgrade pip==20.3.4 setuptools==44.1.1 && \
+    pip install --no-cache-dir --only-binary=:all: wheel==0.37.1 opencv-python-headless==4.1.2.30
+
+ENV CONDA_DIR=/opt/miniconda
+ENV MINICONDA_VERSION=py310_23.11.0-2
+ENV YOLO_PYTHON=/opt/yolo_py/bin/python
+ENV YOLO_CONFIG_DIR=/tmp/Ultralytics
+ENV MPLCONFIGDIR=/tmp/matplotlib
+
+# Keep ROS Kinetic on Python 2, but add an isolated Python 3 CPU inference
+# runtime for Ultralytics YOLOv8. The ROS node talks to this runtime through a
+# small JSON-lines worker process, avoiding rospy/cv_bridge Python-version
+# conflicts on Ubuntu 16.04.
+# Pin the installer: current "latest" Miniconda requires GLIBC 2.28, while
+# Ubuntu 16.04 in ROS Kinetic provides GLIBC 2.23.
+RUN curl -fL --retry 5 --retry-delay 3 \
+      "https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" \
+      -o /tmp/miniconda.sh && \
+    bash /tmp/miniconda.sh -b -p "$CONDA_DIR" && \
+    rm -f /tmp/miniconda.sh && \
+    "$CONDA_DIR/bin/conda" create -y -p /opt/yolo_py python=3.10 pip && \
+    /opt/yolo_py/bin/python -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    /opt/yolo_py/bin/python -m pip install --no-cache-dir \
+      --index-url https://download.pytorch.org/whl/cpu \
+      torch==2.2.2 torchvision==0.17.2 && \
+    /opt/yolo_py/bin/python -m pip install --no-cache-dir \
+      ultralytics==8.4.53 \
+      opencv-python-headless==4.10.0.84 \
+      numpy==1.26.4 && \
+    "$CONDA_DIR/bin/conda" clean -afy && \
+    mkdir -p "$YOLO_CONFIG_DIR" "$MPLCONFIGDIR"
+
+RUN /opt/yolo_py/bin/python -m pip install --no-cache-dir albumentations==2.0.8
+
 # The ROS Kinetic Xenial base image ships an old Mesa libGL.  For GPU-enabled
 # containers, use NVIDIA's Ubuntu 16.04 GLVND loader so libGL can dispatch to
 # the host-mounted NVIDIA driver libraries.

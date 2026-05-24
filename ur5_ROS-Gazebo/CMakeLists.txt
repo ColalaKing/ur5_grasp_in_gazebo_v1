@@ -5,18 +5,42 @@ cmake_minimum_required(VERSION 2.8.3)
 project(ur5_notebook)
 
 # Find the catkin build system, and any other packages on which we depend.
-find_package(catkin REQUIRED COMPONENTS gazebo_msgs roscpp geometry_msgs std_srvs std_msgs message_generation)
+find_package(catkin REQUIRED COMPONENTS
+  cv_bridge
+  gazebo_msgs
+  geometry_msgs
+  message_generation
+  roscpp
+  rospy
+  sensor_msgs
+  std_msgs
+  std_srvs
+  tf
+  trajectory_msgs
+)
 # Declare our catkin package.
 
 add_compile_options(-std=c++11)
 
 #add_message files
-add_message_files(FILES blocks_poses.msg)
-add_message_files(FILES Tracker.msg)
+add_message_files(FILES
+  blocks_poses.msg
+  Detection2D.msg
+  Detection2DArray.msg
+  Tracker.msg
+)
 
 generate_messages(DEPENDENCIES std_msgs)
 
-catkin_package(CATKIN_DEPENDS message_runtime)
+catkin_package(CATKIN_DEPENDS
+  cv_bridge
+  message_runtime
+  rospy
+  sensor_msgs
+  std_msgs
+  tf
+  trajectory_msgs
+)
 
 # Specify locations of header files.
 include_directories(include ${catkin_INCLUDE_DIRS})

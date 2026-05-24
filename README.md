@@ -82,7 +82,7 @@ CPU 路线如果直接用 `gui:=true` 打不开 Gazebo 图形界面，建议使�
 
 ### CPU + VNC 图形界面
 
-CPU + VNC 会在容器内启动一个虚拟桌面，通过软件渲染显示 Gazebo GUI，适合没有 NVIDIA GPU、远程桌面 OpenGL 不稳定、或者 Docker X11 直连失败的情况。
+CPU + VNC 会在容器内启动一个虚拟桌面，通过软件渲染运行 Gazebo，适合没有 NVIDIA GPU、远程桌面 OpenGL 不稳定、或者 Docker X11 直连失败的情况。Mac Docker/Rosetta 下 Gazebo7 的 `gzclient` 容易崩溃，所以脚本默认不打开 Gazebo GUI，而是启用稳定的 `/ur5/wrist_camera/image_raw` 备用腕部相机发布器。
 
 宿主机先安装 VNC 查看器：
 
@@ -110,22 +110,24 @@ source /root/arm_ws/devel/setup.bash
 宿主机另开一个终端连接 VNC：
 
 ```bash
-vncviewer localhost:5900
+vncviewer localhost:5901
 ```
 
-VNC 默认启动当前大作业环境，等价于 `assignment_env.launch gui:=true randomize:=true`。如果要修改启动参数，可以在容器内用环境变量控制：
+VNC 默认启动当前大作业环境，等价于 `assignment_env.launch gui:=false randomize:=true virtual_wrist_camera:=true`。如果要修改启动参数，可以在容器内用环境变量控制：
 
 ```bash
 GAZEBO_RANDOMIZE=false /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
 GAZEBO_SEED=42 /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
 GAZEBO_SPAWN_OBSTACLES=true /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
 GAZEBO_PAUSED=true /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
+GAZEBO_GUI=true /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
+GAZEBO_VIRTUAL_WRIST_CAMERA=false /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
 ```
 
-如果端口 `5900` 被占用，可以指定其他端口：
+默认 Docker Compose 把容器内 `5900` 映射到宿主机 `5901`。如果要换端口，需要同步修改 `docker-compose.yml` 的端口映射和脚本的 `GAZEBO_VNC_PORT`。
 
 ```bash
-GAZEBO_VNC_PORT=5901 /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
+GAZEBO_VNC_PORT=5900 /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
 vncviewer localhost:5901
 ```
 
@@ -217,7 +219,7 @@ roslaunch ur5_notebook assignment_env.launch gui:=true randomize:=true spawn_obs
 
 障碍物只作为选做环境元素。若控制端要做避障，还需要把障碍物同步加入 MoveIt Planning Scene。
 
-### 4. 查看相机话题
+### 4. 查看腕部相机话题
 
 仿真启动后，另开一个容器终端：
 
@@ -226,37 +228,284 @@ docker exec -it ur5_grasp_kinetic bash
 cd /root/arm_ws
 source /opt/ros/kinetic/setup.bash
 source /root/arm_ws/devel/setup.bash
-rostopic list | grep -E "usbcam|camera"
+rostopic list | grep -E "wrist_camera|camera"
 ```
 
 正常会看到：
 
 ```bash
-/ur5/usbcam/camera_info
-/ur5/usbcam/image_raw
+/ur5/wrist_camera/camera_info
+/ur5/wrist_camera/image_raw
 ```
 
 查看图像频率：
 
 ```bash
-rostopic hz /ur5/usbcam/image_raw
+rostopic hz /ur5/wrist_camera/image_raw
 ```
 
 查看相机参数：
 
 ```bash
-rostopic echo -n 1 /ur5/usbcam/camera_info
+rostopic echo -n 1 /ur5/wrist_camera/camera_info
 ```
 
-如需打开图像窗口：
+如需打开图像窗口，先保证这个终端也使用 VNC 的显示号：
 
 ```bash
-rqt_image_view /ur5/usbcam/image_raw
+export DISPLAY=:99
+rqt_image_view /ur5/wrist_camera/image_raw
 ```
 
-注意：当前相机是腕部相机，安装在机械臂末端，初始姿态不一定正对所有方块。
+当前主接口仍是腕部相机话题。`assignment_env.launch` 默认启用 `virtual_wrist_camera:=true`，用于绕过 Mac Docker/Rosetta 下 Gazebo7 相机传感器注册但不吐帧的问题；换到 Linux 原生或 GPU 环境后，如果真实 Gazebo 相机可以稳定发布帧，可用 `virtual_wrist_camera:=false` 关闭备用发布器。`assignment_env.launch` 也默认会发送一组观察姿态，让相机尽量正对桌面方块；如果后续运动规划同学需要完全手动控制机械臂，可以关闭：
 
-### 5. 查看场景真值
+```bash
+roslaunch ur5_notebook assignment_env.launch gui:=false move_to_view_pose:=false
+```
+
+### 5. B 视觉检测功能概览
+
+B 视觉检测部分负责识别右侧彩色数字物块，不把左侧 1-6 目标格子当成待抓取物块。当前实现包含两条检测路线：
+
+- YOLOv8 主方案：识别 0-9 共 10 类数字方块，输出类别、置信度、bbox、中心点像素坐标和 `yaw_deg` 旋转角。
+- 传统视觉对照方案：提供颜色、轮廓、模板和混合方法，方便与 YOLO 结果做准确率和耗时对比。
+
+左侧目标格子只作为放置目标和背景参考，不在 YOLO 标签中标注。`detection.py` 还会做颜色饱和度过滤和检测区域约束，降低白底目标格子被误检为数字物块的概率。6 和 9 形状接近时，传统方法会结合物块颜色辅助区分，YOLO 训练数据也保留颜色差异作为有效特征。
+
+### 6. 采集 YOLOv8 训练数据
+
+先启动仿真环境：
+
+```bash
+roslaunch ur5_notebook assignment_env.launch gui:=false randomize:=true virtual_wrist_camera:=true
+```
+
+另开终端采集训练数据：
+
+```bash
+roslaunch ur5_notebook collect_yolo_dataset.launch sample_count:=300
+```
+
+想多采几组随机场景时，重启仿真并换一个 `seed`，后续采集用 `reset_train_list:=false` 追加到同一个训练列表：
+
+```bash
+roslaunch ur5_notebook assignment_env.launch gui:=false randomize:=true seed:=2 virtual_wrist_camera:=true
+roslaunch ur5_notebook collect_yolo_dataset.launch sample_count:=300 reset_train_list:=false
+```
+
+生成的数据位于：
+
+```bash
+/root/arm_ws/src/ur5_grasp_in_gazebo/ur5_ROS-Gazebo/yolo/data
+```
+
+Ultralytics 配置文件位于：
+
+```bash
+/root/arm_ws/src/ur5_grasp_in_gazebo/ur5_ROS-Gazebo/yolo/data_yolov8.yaml
+```
+
+类别顺序固定为 0-9：
+
+```bash
+0 1 2 3 4 5 6 7 8 9
+```
+
+训练图片可以包含左侧目标格子，但标签只标右侧可抓取彩色数字物块。这样 YOLO 会把左侧白底数字格子学习成背景，避免后续抓取时把目标位置误认为物块。
+
+### 7. 在 Mac 本机训练 YOLOv8
+
+训练在 Mac 宿主机执行，使用 Ultralytics YOLOv8 和 Apple Silicon MPS 加速。建议先建一个 Python3 虚拟环境：
+
+```bash
+cd /Users/yingziyu009/Desktop/ur5_grasp_in_gazebo_v1
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install ultralytics torch torchvision opencv-python-headless albumentations matplotlib
+```
+
+开始训练：
+
+```bash
+python scripts/train_yolov8_digits.py \
+  --data ur5_ROS-Gazebo/yolo/data_yolov8.yaml \
+  --model yolov8n.pt \
+  --epochs 120 \
+  --imgsz 640 \
+  --batch 8 \
+  --device mps
+```
+
+训练脚本会先检查 MPS 是否可用，如果不可用会直接退出，避免误用 CPU 慢跑。脚本内置了适度数据增强：HSV 亮度/饱和度变化、轻微平移缩放透视、少量 mosaic，并在安装 `albumentations` 时额外加入轻微模糊和亮度/对比度变化。数字识别不能水平或垂直翻转，所以脚本显式关闭 `fliplr` 和 `flipud`。
+
+训练完成后，脚本会把用于 ROS 推理的权重复制到：
+
+```bash
+/Users/yingziyu009/Desktop/ur5_grasp_in_gazebo_v1/ur5_ROS-Gazebo/yolo/weights/best.pt
+```
+
+完整训练 checkpoint 会另存为：
+
+```bash
+/Users/yingziyu009/Desktop/ur5_grasp_in_gazebo_v1/ur5_ROS-Gazebo/yolo/weights/best_training_full.pt
+```
+
+注意：`*.pt`、训练数据图片、标签和 `runs/` 目录不提交到 Git。Docker volumes 会把本机仓库同步到容器，所以容器内推理权重路径是：
+
+```bash
+/root/arm_ws/src/ur5_grasp_in_gazebo/ur5_ROS-Gazebo/yolo/weights/best.pt
+```
+
+### 8. 构建容器内 YOLOv8 推理环境
+
+ROS Kinetic 默认使用 Python2，Ultralytics 需要 Python3。为避免 `rospy/cv_bridge` 与 Python3 冲突，Dockerfile 中新增了独立 Python3 环境 `/opt/yolo_py`：ROS 节点仍用 Python2 订阅/发布话题，YOLOv8 推理由 Python3 worker 子进程完成。
+
+修改 Dockerfile 后需要重建镜像：
+
+```bash
+docker compose build ur5_grasp
+docker compose up -d
+```
+
+进入容器检查环境：
+
+```bash
+docker exec -it ur5_grasp_kinetic bash
+/opt/yolo_py/bin/python -c "import torch, ultralytics, cv2; print(torch.__version__, ultralytics.__version__, cv2.__version__)"
+```
+
+检查 `best.pt` 是否已经通过 volume 出现在容器内：
+
+```bash
+ls -lh /root/arm_ws/src/ur5_grasp_in_gazebo/ur5_ROS-Gazebo/yolo/weights/best.pt
+```
+
+可选：直接测试 Python3 worker 是否能加载模型：
+
+```bash
+/opt/yolo_py/bin/python \
+  /root/arm_ws/src/ur5_grasp_in_gazebo/ur5_ROS-Gazebo/yolo/yolov8_worker.py \
+  --self-test \
+  --model /root/arm_ws/src/ur5_grasp_in_gazebo/ur5_ROS-Gazebo/yolo/weights/best.pt
+```
+
+### 9. 启动 YOLOv8 目标检测节点
+
+新增消息或脚本后需要先重新编译工作区：
+
+```bash
+cd /root/arm_ws
+source /opt/ros/kinetic/setup.bash
+catkin_make
+source /root/arm_ws/devel/setup.bash
+```
+
+启动检测节点：
+
+```bash
+roslaunch ur5_notebook detection.launch
+```
+
+常用参数：
+
+```bash
+roslaunch ur5_notebook detection.launch \
+  classes:=0,1,2,3,4,5,6,7,8,9 \
+  input_size:=512 \
+  confidence_threshold:=0.50 \
+  iou_threshold:=0.45 \
+  confirm_frames:=3 \
+  worker_timeout:=2.0
+```
+
+`detection.py` 会订阅：
+
+```bash
+/ur5/wrist_camera/image_raw
+```
+
+并发布检测数组：
+
+```bash
+/detection/results
+```
+
+查看检测数组：
+
+```bash
+rostopic echo /detection/results
+```
+
+查看每帧耗时和类别统计：
+
+```bash
+rostopic echo /detection/stats
+```
+
+在 VNC 里查看标注后的图像：
+
+```bash
+export DISPLAY=:99
+rqt_image_view /detection/annotated_image
+```
+
+检测输出字段包括 `class_id`、`class_name`、`confidence`、`xmin/ymin/xmax/ymax`、`center_x/center_y`、`yaw_deg` 和 `stable`。`stable=true` 表示同一类别目标已经通过多帧确认。`yaw_deg` 是根据数字物块彩色方块外轮廓估计的平面旋转角，后续坐标转换和抓取姿态可以直接使用这个字段。
+
+### 10. 传统方法对比与 100 次离线验证
+
+为满足 YOLO 与传统算法对比，仓库提供 `traditional_detection.py`。它和 YOLO 订阅同一个腕部相机图像，输出同样的 `Detection2DArray` 结构，并额外发布每帧耗时。
+
+颜色方法：
+
+```bash
+roslaunch ur5_notebook traditional_detection.launch method:=color
+```
+
+轮廓方法：
+
+```bash
+roslaunch ur5_notebook traditional_detection.launch method:=contour
+```
+
+模板匹配方法：
+
+```bash
+roslaunch ur5_notebook traditional_detection.launch method:=template
+```
+
+混合传统方法：
+
+```bash
+roslaunch ur5_notebook traditional_detection.launch method:=hybrid
+```
+
+查看传统检测输出：
+
+```bash
+rostopic echo /traditional_detection/results
+rostopic echo /traditional_detection/stats
+rqt_image_view /traditional_detection/image_annotated
+```
+
+离线评估脚本会从验证集抽取图片，对传统方法和 YOLOv8 同时评估，并生成 `metrics.json`、`per_frame.csv`、`summary.png` 和示例标注图：
+
+```bash
+python scripts/evaluate_detection_methods.py \
+  --limit 100 \
+  --model ur5_ROS-Gazebo/yolo/weights/best.pt \
+  --output-dir ur5_ROS-Gazebo/experiments/eval_100
+```
+
+输出目录：
+
+```bash
+/Users/yingziyu009/Desktop/ur5_grasp_in_gazebo_v1/ur5_ROS-Gazebo/experiments/eval_100
+```
+
+当前策略建议固定同一组验证集，重点记录 0-9 的类别准确率、漏检、误检、平均中心点误差和平均耗时。实验结果图可以用于汇报中展示 YOLO 与传统方法的对比。
+
+### 11. 查看场景真值
 
 环境节点会发布生成时的方块和格子位姿，便于调试和统计视觉定位误差：
 

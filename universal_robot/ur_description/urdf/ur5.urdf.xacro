@@ -13,7 +13,7 @@
   <xacro:property name="wrist_2_mass" value="1.2190" />
   <xacro:property name="wrist_3_mass" value="0.1879" />
   <xacro:property name="height3" value="1" /> <!-- Link 3 -->
-  <xacro:property name="camera_link" value="0.02" /> <!-- Size of square 'camera' box -->
+  <xacro:property name="wrist_camera_size" value="0.02" /> <!-- Size of square wrist camera box -->
   <xacro:property name="axel_offset" value="0.05" /> <!-- Space btw top of beam and the each joint -->
   <xacro:property name="shoulder_cog" value="0.0 0.00193 -0.02561" />
   <xacro:property name="upper_arm_cog" value="0.0 -0.024201 0.2125" />
@@ -677,25 +677,26 @@
 
 
 
-  <joint name="camera_joint" type="fixed">
+  <joint name="wrist_camera_joint" type="fixed">
     <axis xyz="0 1 0" />
     <origin xyz="-0.02 0.0 0.055" rpy="0 0 0"/>
     <parent link="ee_link"/>
-    <child link="camera_link"/>
+    <child link="wrist_camera_link"/>
   </joint>
 
-  <!-- Camera -->
-  <link name="camera_link">
+  <!-- Wrist camera body.  The Gazebo camera plugin is attached in
+       common.gazebo.xacro. -->
+  <link name="wrist_camera_link">
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-	<box size="${camera_link} ${camera_link} ${camera_link}"/>
+	<box size="${wrist_camera_size} ${wrist_camera_size} ${wrist_camera_size}"/>
       </geometry>
     </collision>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-	<box size="${camera_link} ${camera_link} ${camera_link}"/>
+	<box size="${wrist_camera_size} ${wrist_camera_size} ${wrist_camera_size}"/>
       </geometry>
       <material name="green"/>
     </visual>
@@ -709,15 +710,15 @@
 
   <!-- generate an optical frame http://www.ros.org/reps/rep-0103.html#suffix-frames
       so that ros and opencv can operate on the camera frame correctly -->
-  <joint name="camera_optical_joint" type="fixed">
+  <joint name="wrist_camera_optical_joint" type="fixed">
     <!-- these values have to be these values otherwise the gazebo camera image
         won't be aligned properly with the frame it is supposedly originating from -->
     <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
-    <parent link="camera_link"/>
-    <child link="camera_link_optical"/>
+    <parent link="wrist_camera_link"/>
+    <child link="wrist_camera_optical_frame"/>
   </joint>
 
-  <link name="camera_link_optical">
+  <link name="wrist_camera_optical_frame">
   </link>
 
     <xacro:ur_arm_transmission prefix="${prefix}" hw_interface="${transmission_hw_interface}"/>

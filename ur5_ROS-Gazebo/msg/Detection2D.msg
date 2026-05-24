@@ -1,0 +1,12 @@
+# 单个目标检测结果，坐标单位为像素。
+int32 class_id
+string class_name
+float64 confidence
+int32 xmin
+int32 ymin
+int32 xmax
+int32 ymax
+int32 center_x
+int32 center_y
+float64 yaw_deg
+bool stable

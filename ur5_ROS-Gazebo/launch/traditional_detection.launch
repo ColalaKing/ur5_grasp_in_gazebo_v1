@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="image_topic" default="/ur5/wrist_camera/image_raw"/>
+  <arg name="method" default="digit"/>
+  <arg name="classes" default="0,1,2,3,4,5,6,7,8,9"/>
+  <arg name="confidence_threshold" default="0.18"/>
+  <arg name="color_assist_classes" default="6,9"/>
+  <arg name="color_assist_confidence" default="0.45"/>
+  <arg name="confirm_frames" default="3"/>
+  <arg name="confirm_distance_px" default="35.0"/>
+  <arg name="use_detection_roi" default="true"/>
+  <arg name="roi_x_min_ratio" default="0.50"/>
+  <arg name="roi_x_max_ratio" default="1.00"/>
+  <arg name="roi_y_min_ratio" default="0.00"/>
+  <arg name="roi_y_max_ratio" default="1.00"/>
+  <arg name="show_window" default="false"/>
+  <arg name="publish_annotated" default="true"/>
+  <arg name="results_topic" default="/traditional_detection/results"/>
+  <arg name="annotated_topic" default="/traditional_detection/image_annotated"/>
+  <arg name="stats_topic" default="/traditional_detection/stats"/>
+  <arg name="details_topic" default="/traditional_detection/details"/>
+
+  <node name="traditional_detection" pkg="ur5_notebook"
+        type="traditional_detection.py" output="screen">
+    <param name="image_topic" value="$(arg image_topic)"/>
+    <param name="method" value="$(arg method)"/>
+    <param name="classes" value="$(arg classes)"/>
+    <param name="confidence_threshold" value="$(arg confidence_threshold)"/>
+    <param name="color_assist_classes" value="$(arg color_assist_classes)"/>
+    <param name="color_assist_confidence" value="$(arg color_assist_confidence)"/>
+    <param name="confirm_frames" value="$(arg confirm_frames)"/>
+    <param name="confirm_distance_px" value="$(arg confirm_distance_px)"/>
+    <param name="use_detection_roi" value="$(arg use_detection_roi)"/>
+    <param name="roi_x_min_ratio" value="$(arg roi_x_min_ratio)"/>
+    <param name="roi_x_max_ratio" value="$(arg roi_x_max_ratio)"/>
+    <param name="roi_y_min_ratio" value="$(arg roi_y_min_ratio)"/>
+    <param name="roi_y_max_ratio" value="$(arg roi_y_max_ratio)"/>
+    <param name="show_window" value="$(arg show_window)"/>
+    <param name="publish_annotated" value="$(arg publish_annotated)"/>
+    <param name="results_topic" value="$(arg results_topic)"/>
+    <param name="annotated_topic" value="$(arg annotated_topic)"/>
+    <param name="stats_topic" value="$(arg stats_topic)"/>
+    <param name="details_topic" value="$(arg details_topic)"/>
+  </node>
+</launch>
