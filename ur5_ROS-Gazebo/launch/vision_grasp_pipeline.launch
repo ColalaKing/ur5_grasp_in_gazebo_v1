@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="scene_config" default="$(find ur5_notebook)/config/assignment_scene.yaml"/>
+  <arg name="model_path" default="$(find ur5_notebook)/yolo/weights/best.pt"/>
+  <arg name="require_stable" default="true"/>
+  <arg name="enable_place" default="true"/>
+  <arg name="moveit_startup_delay" default="8.0"/>
+
+  <include file="$(find ur5_notebook)/launch/detection_localization.launch">
+    <arg name="scene_config" value="$(arg scene_config)"/>
+    <arg name="model_path" value="$(arg model_path)"/>
+    <arg name="require_stable" value="$(arg require_stable)"/>
+  </include>
+
+  <include file="$(find ur5_notebook)/launch/grasp_executor.launch">
+    <arg name="scene_config" value="$(arg scene_config)"/>
+    <arg name="enable_place" value="$(arg enable_place)"/>
+    <arg name="moveit_startup_delay" value="$(arg moveit_startup_delay)"/>
+  </include>
+</launch>

@@ -27,10 +27,12 @@ add_message_files(FILES
   blocks_poses.msg
   Detection2D.msg
   Detection2DArray.msg
+  GraspTarget.msg
+  GraspTargetArray.msg
   Tracker.msg
 )
 
-generate_messages(DEPENDENCIES std_msgs)
+generate_messages(DEPENDENCIES std_msgs geometry_msgs)
 
 catkin_package(CATKIN_DEPENDS
   cv_bridge
