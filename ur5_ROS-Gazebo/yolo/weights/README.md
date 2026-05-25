@@ -12,4 +12,4 @@ best.pt
 ur5_ROS-Gazebo/yolo/weights/best.pt
 ```
 
-权重文件属于二进制训练产物，默认不提交到 Git。容器运行时通过 Docker volume 读取宿主机仓库里的同一路径。
+为方便组内后续抓取、坐标转换和集成测试，当前的 `best.pt` 已随功能分支提交到 GitHub。重新训练产生的其他 checkpoint，例如 `best_training_full.pt` 和中间权重，仍然不要提交。
