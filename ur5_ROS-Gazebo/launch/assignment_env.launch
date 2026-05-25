@@ -8,6 +8,16 @@
   <arg name="randomize" default="true"/>
   <arg name="seed" default="0"/>
   <arg name="spawn_obstacles" default="false"/>
+  <arg name="move_to_view_pose" default="true"/>
+  <arg name="virtual_wrist_camera" default="true"/>
+  <arg name="virtual_camera_rate" default="10.0"/>
+  <arg name="virtual_camera_width" default="1280"/>
+  <arg name="virtual_camera_height" default="960"/>
+  <arg name="virtual_camera_draw_target_grid" default="true"/>
+  <arg name="virtual_camera_view_padding" default="0.08"/>
+  <arg name="enable_gazebo_wrist_camera" default="false"/>
+  <arg name="view_joint_positions" default="-1.57691,-1.71667,1.79266,-1.67721,-1.57050,0.0"/>
+  <arg name="view_pose_duration" default="4.0"/>
   <arg name="scene_config" default="$(find ur5_notebook)/config/assignment_scene.yaml"/>
 
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
@@ -18,6 +28,7 @@
 
   <include file="$(find ur_description)/launch/ur5_upload.launch">
     <arg name="limited" value="$(arg limited)"/>
+    <arg name="enable_gazebo_wrist_camera" value="$(arg enable_gazebo_wrist_camera)"/>
   </include>
 
   <node name="spawn_gazebo_model" pkg="gazebo_ros" type="spawn_model"
@@ -44,5 +55,27 @@
     <param name="randomize" value="$(arg randomize)"/>
     <param name="seed" value="$(arg seed)"/>
     <param name="spawn_obstacles" value="$(arg spawn_obstacles)"/>
+  </node>
+
+  <node if="$(arg move_to_view_pose)" name="wrist_camera_view_pose"
+        pkg="ur5_notebook" type="wrist_camera_view_pose.py"
+        launch-prefix="$(find ur5_notebook)/scripts/delayed_exec.sh 8"
+        output="screen">
+    <param name="joint_positions" value="$(arg view_joint_positions)"/>
+    <param name="duration" value="$(arg view_pose_duration)"/>
+  </node>
+
+  <node if="$(arg virtual_wrist_camera)" name="virtual_wrist_camera"
+        pkg="ur5_notebook" type="virtual_wrist_camera.py"
+        output="screen">
+    <rosparam command="load" file="$(arg scene_config)"/>
+    <param name="image_topic" value="/ur5/wrist_camera/image_raw"/>
+    <param name="camera_info_topic" value="/ur5/wrist_camera/camera_info"/>
+    <param name="frame_id" value="wrist_camera_optical_frame"/>
+    <param name="rate" value="$(arg virtual_camera_rate)"/>
+    <param name="width" value="$(arg virtual_camera_width)"/>
+    <param name="height" value="$(arg virtual_camera_height)"/>
+    <param name="view_padding" value="$(arg virtual_camera_view_padding)"/>
+    <param name="draw_target_grid" value="$(arg virtual_camera_draw_target_grid)"/>
   </node>
 </launch>

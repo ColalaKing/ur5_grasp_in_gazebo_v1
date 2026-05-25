@@ -23,7 +23,7 @@ class ur5_vision:
         self.cx = 400.0
         self.cy = 400.0
         self.bridge = cv_bridge.CvBridge()
-        self.image_sub = rospy.Subscriber('/ur5/usbcam/image_raw', Image, self.image_callback)
+        self.image_sub = rospy.Subscriber('/ur5/wrist_camera/image_raw', Image, self.image_callback)
         self.cxy_pub = rospy.Publisher('cxy', Tracker, queue_size=1)
 
 
