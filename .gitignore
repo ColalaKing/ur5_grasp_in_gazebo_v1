@@ -5,6 +5,7 @@ __pycache__/
 .DS_Store
 runs/
 *.pt
+!ur5_ROS-Gazebo/yolo/weights/best.pt
 *.cache
 ur5_ROS-Gazebo/yolo/data/train.txt
 ur5_ROS-Gazebo/yolo/data/valid.txt
