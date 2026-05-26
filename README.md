@@ -452,7 +452,58 @@ rqt_image_view /detection/annotated_image
 
 检测输出字段包括 `class_id`、`class_name`、`confidence`、`xmin/ymin/xmax/ymax`、`center_x/center_y`、`yaw_deg` 和 `stable`。`stable=true` 表示同一类别目标已经通过多帧确认。`yaw_deg` 是根据数字物块彩色方块外轮廓估计的平面旋转角，后续坐标转换和抓取姿态可以直接使用这个字段。
 
-### 10. 传统方法对比与 100 次离线验证
+### 10. 像素坐标转换为抓取坐标
+
+启动检测节点后，另开一个容器终端启动几何转换节点：
+
+```bash
+roslaunch ur5_notebook grasp_pose_converter.launch
+```
+
+该节点订阅：
+
+```bash
+/detection/results
+/ur5/wrist_camera/camera_info
+```
+
+并发布：
+
+```bash
+/grasp_targets/poses
+/grasp_targets/selected
+/grasp_targets/approach
+/grasp_targets/details
+```
+
+其中 `/grasp_targets/selected` 是当前置信度最高的抓取点，默认发布在 `base_link` 坐标系下；`/grasp_targets/approach` 是同一目标上方 10cm 的预抓取点。查看结果：
+
+```bash
+rostopic echo /grasp_targets/selected
+rostopic echo /grasp_targets/approach
+rostopic echo /grasp_targets/details
+```
+
+`/grasp_targets/details` 会同时给出检测像素坐标、`world_xyz` 和目标坐标系下的 `target_xyz`，方便和真值对比：
+
+```bash
+rostopic echo -n 1 /scene/block_truth
+rostopic echo -n 1 /grasp_targets/details
+```
+
+常用参数：
+
+```bash
+roslaunch ur5_notebook grasp_pose_converter.launch \
+  detections_topic:=/detection/results \
+  target_frame:=base_link \
+  stable_only:=true \
+  min_confidence:=0.50 \
+  grasp_z_offset:=0.015 \
+  approach_z_offset:=0.10
+```
+
+### 11. 传统方法对比与 100 次离线验证
 
 为满足 YOLO 与传统算法对比，仓库提供 `traditional_detection.py`。它和 YOLO 订阅同一个腕部相机图像，输出同样的 `Detection2DArray` 结构，并额外发布每帧耗时。
 
@@ -505,7 +556,7 @@ python scripts/evaluate_detection_methods.py \
 
 当前策略建议固定同一组验证集，重点记录 0-9 的类别准确率、漏检、误检、平均中心点误差和平均耗时。实验结果图可以用于汇报中展示 YOLO 与传统方法的对比。
 
-### 11. 查看场景真值
+### 12. 查看场景真值
 
 环境节点会发布生成时的方块和格子位姿，便于调试和统计视觉定位误差：
 

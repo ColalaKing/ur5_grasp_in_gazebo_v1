@@ -217,8 +217,15 @@ class YoloDigitDetector(object):
                 rospy.loginfo("[yolov8_worker] %s", text)
 
     def decode_text(self, value):
+        if sys.version_info[0] >= 3:
+            if hasattr(value, "decode"):
+                value = value.decode("utf-8", "replace")
+            return str(value).encode("ascii", "replace").decode("ascii")
+
+        if isinstance(value, unicode):
+            return value.encode("ascii", "replace")
         if hasattr(value, "decode"):
-            return value.decode("utf-8", "replace")
+            return value.decode("utf-8", "replace").encode("ascii", "replace")
         return str(value)
 
     def camera_info_callback(self, msg):
