@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="scene_config" default="$(find ur5_notebook)/config/assignment_scene.yaml"/>
+  <arg name="targets_topic" default="/localization/grasp_targets"/>
+  <arg name="command_topic" default="/grasp/target_class_id"/>
+  <arg name="enable_place" default="true"/>
+  <arg name="use_detection_yaw" default="false"/>
+  <arg name="moveit_startup_delay" default="5.0"/>
+
+  <node name="grasp_executor" pkg="ur5_notebook" type="grasp_executor.py"
+        output="screen">
+    <rosparam command="load" file="$(arg scene_config)"/>
+    <param name="targets_topic" value="$(arg targets_topic)"/>
+    <param name="command_topic" value="$(arg command_topic)"/>
+    <param name="enable_place" value="$(arg enable_place)"/>
+    <param name="use_detection_yaw" value="$(arg use_detection_yaw)"/>
+    <param name="moveit_startup_delay" value="$(arg moveit_startup_delay)"/>
+  </node>
+</launch>
