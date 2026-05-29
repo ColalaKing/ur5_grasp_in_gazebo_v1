@@ -105,6 +105,15 @@ RUN rosdep update || true
 # 创建 catkin 工作区
 RUN mkdir -p /root/arm_ws/src
 
+# pal-robotics/gazebo_ros_link_attacher: 物理层焊接 plugin，被 grasp_executor 用来
+# 把方块焊到 wrist_3_link。必须 checkout 到 5aa2391（之后的 commit 用 Gazebo 9 API
+# 不兼容 Kinetic 的 Gazebo 7）。
+RUN cd /root/arm_ws/src && \
+    git clone https://github.com/pal-robotics/gazebo_ros_link_attacher.git && \
+    cd gazebo_ros_link_attacher && \
+    git checkout 5aa2391
+
+
 WORKDIR /root/arm_ws
 
 # 每次进入容器自动 source ROS 和工作区

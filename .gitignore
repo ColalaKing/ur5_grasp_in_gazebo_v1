@@ -1,27 +1,30 @@
-.vscode/
-.venv/
+# Backups (累积调试备份，不进 Git)
+*.bak
+*.bak.*
+
+# Python
 __pycache__/
 *.pyc
-.DS_Store
+*.pyo
+
+# ROS / catkin
+build/
+devel/
+install/
+*.swp
+
+# YOLO 训练产物（>100MB，已在 README 第 7 章说明）
+ur5_ROS-Gazebo/yolo/weights/*.pt
+ur5_ROS-Gazebo/yolo/data/
 runs/
-*.pt
-!ur5_ROS-Gazebo/yolo/weights/best.pt
-*.cache
-ur5_ROS-Gazebo/yolo/data/train.txt
-ur5_ROS-Gazebo/yolo/data/valid.txt
-ur5_ROS-Gazebo/yolo/data/train_highres.txt
-ur5_ROS-Gazebo/yolo/data/valid_highres.txt
-ur5_ROS-Gazebo/yolo/data/images/*
-!ur5_ROS-Gazebo/yolo/data/images/.gitkeep
-ur5_ROS-Gazebo/yolo/data/labels/*
-!ur5_ROS-Gazebo/yolo/data/labels/.gitkeep
-ur5_ROS-Gazebo/yolo/weights/*.weights
-ur5_ROS-Gazebo/yolo/weights/backup/*
-!ur5_ROS-Gazebo/yolo/weights/backup/.gitkeep
-ur5_ROS-Gazebo/yolo/yolov3-tiny.conv.15
-ur5_ROS-Gazebo/yolo/predictions.jpg
-ur5_ROS-Gazebo/yolo/bad.list
-ur5_ROS-Gazebo/experiments/*
-!ur5_ROS-Gazebo/experiments/README.md
-!ur5_ROS-Gazebo/experiments/detection_comparison.md
-tools/
+
+# Demo 视频源（保留 gif，不推 mp4）
+demos/*.mp4
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

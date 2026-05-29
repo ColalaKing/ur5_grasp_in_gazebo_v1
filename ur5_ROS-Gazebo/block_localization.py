@@ -4,6 +4,7 @@
 import json
 import math
 import sys
+from copy import deepcopy
 
 import rospy
 import tf
@@ -58,6 +59,13 @@ class BlockLocalization(object):
             + self.block_surface_offset
             + self.grasp_height_offset
         )
+
+        # Gazebo 把 robot spawn 到 world (0, 0.7, 0.2)，但 URDF 里 world->base_link
+        # 是 identity（缺 spawn 偏移），导致 tf.transformPose(world->base_link) 实际是
+        # noop——pose_base 数值会等于 pose_world。这里手动减偏移，让 pose_base 名实相符。
+        self.spawn_offset_x = float(rospy.get_param("~spawn_offset_x", 0.0))
+        self.spawn_offset_y = float(rospy.get_param("~spawn_offset_y", 0.7))
+        self.spawn_offset_z = float(rospy.get_param("~spawn_offset_z", 0.2))
 
         self.camera_width = int(rospy.get_param("~camera_width", 1280))
         self.camera_height = int(rospy.get_param("~camera_height", 960))
@@ -178,27 +186,19 @@ class BlockLocalization(object):
         return pose
 
     def transform_pose_to_base(self, world_pose, stamp):
-        pose_stamped = PoseStamped()
-        pose_stamped.header.stamp = stamp
-        pose_stamped.header.frame_id = self.world_frame
-        pose_stamped.pose = world_pose
-        try:
-            return self.tf_listener.transformPose(self.base_frame, pose_stamped)
-        except (
-            tf.LookupException,
-            tf.ConnectivityException,
-            tf.ExtrapolationException,
-        ) as exc:
-            now = rospy.get_time()
-            if now - self.tf_warning_time > 5.0:
-                rospy.logwarn(
-                    "TF transform %s -> %s unavailable: %s",
-                    self.world_frame,
-                    self.base_frame,
-                    exc,
-                )
-                self.tf_warning_time = now
-            return None
+        # 直接手动减 spawn 偏移把 world 系坐标搬到 base_link 系。
+        # 不走 tf.transformPose 因为 URDF 里 world->base_link 是 identity，
+        # 那条路径是 noop，会导致 pose_base 数值还是 world，下游就要再补偏移。
+        base_pose = deepcopy(world_pose)
+        base_pose.position.x = world_pose.position.x - self.spawn_offset_x
+        base_pose.position.y = world_pose.position.y - self.spawn_offset_y
+        base_pose.position.z = world_pose.position.z - self.spawn_offset_z
+
+        ps = PoseStamped()
+        ps.header.stamp = stamp
+        ps.header.frame_id = self.base_frame
+        ps.pose = base_pose
+        return ps
 
     def detection_callback(self, msg):
         targets = []

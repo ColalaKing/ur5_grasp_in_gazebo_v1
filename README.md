@@ -600,3 +600,39 @@ rosparam get /scene/target_1_pose
 - `spawn_obstacles`：是否生成可选障碍物。
 
 修改配置文件后，重新启动 `assignment_env.launch` 生效。
+
+## 13. 抓取执行（Grasp Executor）
+
+抓取流程使用 `gazebo_ros_link_attacher`（已写入 Dockerfile）在物理层把方块焊到 `wrist_3_link`，避免裸 vacuum plugin 的吸附不稳定问题。
+
+**状态机**
+
+```
+idle → approaching → descending → contacting → vacuum_on
+                                                   ↓
+done ← returning_home ← placing ← retreating
+```
+
+**执行流（4 个终端，每个先 `docker exec -it ur5_grasp_kinetic bash`）**
+
+```bash
+# 终端 1：仿真（保持运行别 Ctrl+C，等到出现 "Assignment scene ready:")
+pkill -9 -f gazebo; pkill -9 -f gzserver; pkill -9 -f gzclient; pkill -9 -f roslaunch; pkill -9 -f rosmaster; pkill -9 -f move_group; pkill -9 -f robot_state_publisher; pkill -9 -f controller_spawner; pkill -9 -f grasp_executor; pkill -9 -f detection; pkill -9 -f localization; sleep 5
+roslaunch ur5_notebook assignment_env.launch seed:=42 gui:=true
+
+# 终端 2：检测+定位
+roslaunch ur5_notebook detection_localization.launch
+
+# 终端 3：抓取执行器
+roslaunch ur5_notebook grasp_executor.launch
+
+# 终端 4：发指令（class_id=-1 自动选 1~6 中可达的；指定 1~6 抓特定类）
+rostopic pub -1 /grasp/target_class_id std_msgs/Int32 "data: -1"
+rostopic echo /grasp/status
+```
+
+**Demo**
+
+| Demo 1 | Demo 2 | Demo 3 |
+|---|---|---|
+| ![demo1](demos/demo1.gif) | ![demo2](demos/demo2.gif) | ![demo3](demos/demo3.gif) |

@@ -242,7 +242,8 @@ class YoloDigitDetector(object):
         try:
             detections = self.detect(image)
         except Exception as exc:
-            rospy.logerr_throttle(2.0, "YOLOv8 detection failed: %s", exc)
+            import traceback
+            rospy.logerr("YOLOv8 detection failed: %s\n%s" % (exc, traceback.format_exc()))
             detections = []
         self.update_stability(detections)
         self.publish_results(image_msg.header, detections)

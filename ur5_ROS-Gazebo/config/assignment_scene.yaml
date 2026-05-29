@@ -8,7 +8,7 @@ table_size_z: 0.20
 block_size_x: 0.06
 block_size_y: 0.06
 block_size_z: 0.04
-block_mass: 0.05
+block_mass: 0.02
 block_mu: 4.0
 block_spacing: 0.09
 spawn_x_min: 0.34
