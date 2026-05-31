@@ -1,0 +1,17 @@
+# 顺序连抓：5 → 6（Extension 1，按 order 不按 priority）
+# 推荐 seed:=42，unreachable_policy:=skip，reach_radius_xy:=0.92
+task_table:
+  - order: 1
+    pick_digit: 5
+    place_grid: 5
+    priority: 10
+
+  - order: 2
+    pick_digit: 2
+    place_grid: 2
+    priority: 9
+
+  - order: 3
+    pick_digit: 6
+    place_grid: 6
+    priority: 8

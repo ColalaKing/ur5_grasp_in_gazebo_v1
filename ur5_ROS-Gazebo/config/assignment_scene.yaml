@@ -11,10 +11,16 @@ block_size_z: 0.04
 block_mass: 0.02
 block_mu: 4.0
 block_spacing: 0.09
+# Spawn 区间（world 系）。机器人 base 在 world y=0.7，方块 base 系 y = world_y - 0.7。
+# 为提高方块落进 UR5 可达带（base 系 hypot(x,y) <= 0.8）的比例：
+#   - 收窄 x 上限（大 x 是不可达的主要来源）
+#   - 抬高 y 下限，让方块整体更靠近 base
+# 注意：scene_spawner 固定 spawn 10 个方块且最小间距 0.09，可达带装不下全部 10 个，
+#       因此个别方块仍可能落在带外被 skip；需配合 seed + unreachable_policy:=skip。
 spawn_x_min: 0.34
-spawn_x_max: 0.75
-spawn_y_min: -0.30
-spawn_y_max: 0.28
+spawn_x_max: 0.60
+spawn_y_min: 0.00
+spawn_y_max: 0.30
 
 grid_origin_x: -0.25
 grid_origin_y: -0.22

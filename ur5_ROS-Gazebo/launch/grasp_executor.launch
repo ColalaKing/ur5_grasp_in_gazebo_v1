@@ -6,6 +6,12 @@
   <arg name="enable_place" default="true"/>
   <arg name="use_detection_yaw" default="false"/>
   <arg name="moveit_startup_delay" default="5.0"/>
+  <!-- false: 从 assignment_env view 姿态直接规划抓取，避免先绕到 SRDF "up" 导致 cartesian fraction=0 -->
+  <arg name="go_up_before_grasp" default="false"/>
+  <arg name="return_home_after_grasp" default="true"/>
+  <arg name="reach_radius_xy" default="0.92"/>
+  <arg name="home_joint_positions" default="-1.57691,-1.71667,1.79266,-1.67721,-1.57050,0.0"/>
+  <arg name="home_named_target" default="up"/>
 
   <node name="grasp_executor" pkg="ur5_notebook" type="grasp_executor.py"
         output="screen">
@@ -15,5 +21,10 @@
     <param name="enable_place" value="$(arg enable_place)"/>
     <param name="use_detection_yaw" value="$(arg use_detection_yaw)"/>
     <param name="moveit_startup_delay" value="$(arg moveit_startup_delay)"/>
+    <param name="go_up_before_grasp" value="$(arg go_up_before_grasp)"/>
+    <param name="return_home_after_grasp" value="$(arg return_home_after_grasp)"/>
+    <param name="reach_radius_xy" value="$(arg reach_radius_xy)"/>
+    <param name="home_joint_positions" value="$(arg home_joint_positions)"/>
+    <param name="home_named_target" value="$(arg home_named_target)"/>
   </node>
 </launch>

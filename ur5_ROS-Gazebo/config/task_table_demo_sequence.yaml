@@ -1,0 +1,22 @@
+# Demo A: 顺序连抓（Extension 1）
+# 推荐 seed:=42，unreachable_policy:=skip
+#
+# 重要：Gazebo 连抓时「远的 6」在第二步极易失败（你已验证单独抓 6 能成）。
+# 因此本 demo 顺序为 6 → 5：第一步手臂最干净时抓较远的 6，再抓较近的 5。
+task_table:
+
+  - order: 1
+    pick_digit: 2
+    place_grid: 2
+    priority: 9
+
+  - order: 2
+    pick_digit: 6
+    place_grid: 6
+    priority: 10
+
+
+  - order: 3
+    pick_digit: 5
+    place_grid: 5
+    priority: 8

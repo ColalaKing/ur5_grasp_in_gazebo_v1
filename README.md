@@ -636,3 +636,140 @@ rostopic echo /grasp/status
 | Demo 1 | Demo 2 | Demo 3 |
 |---|---|---|
 | ![demo1](demos/demo1.gif) | ![demo2](demos/demo2.gif) | ![demo3](demos/demo3.gif) |
+
+## 14. Task Manager Demo（E 模块：可达性 + 调度）
+
+`task_manager`（E 模块）是任务编排层：读任务表 → 做可达性预检 → 向 `grasp_executor` 下发 `/grasp/target_class_id` → 等待 `/grasp/status`，并订阅 `/localization/grasp_targets` 获取稳定检测与位姿。
+
+```text
+/localization/grasp_targets  ──►  task_manager  ──►  /grasp/target_class_id
+                                        ▲                    │
+                                        │                    ▼
+                                   /grasp/status  ◄──  grasp_executor
+```
+
+规则：`pick_digit` 必须等于 `place_grid`（digit N 只能放到 grid N）。拓展 1 按 `order` 顺序执行；拓展 7 在**当前可执行候选**里按分数重排。
+
+更完整的交付说明见：`ur5_ROS-Gazebo/docs/TASK_MANAGER_DELIVERY.md`。
+
+### 14.1 四终端启动（推荐 `seed:=42`）
+
+以下命令在**宿主机 PowerShell**执行（路径为容器内绝对路径，不要用 `$(find ...)`）。
+
+**终端 A — 仿真 + VNC**
+
+```powershell
+docker exec -it ur5_grasp_kinetic bash -lc "GAZEBO_SEED=42 GAZEBO_GUI=true /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh"
+```
+
+等到日志出现 `Assignment scene ready`（或 Gazebo 稳定约 2 分钟）。  
+注意：用 `GAZEBO_SEED=42` 即可；不要设 `GAZEBO_RANDOMIZE=false`（会固定布局、忽略 seed）。
+
+**终端 B — 检测 + 定位**
+
+```powershell
+docker exec -it ur5_grasp_kinetic bash -lc "cd /root/arm_ws && source /opt/ros/kinetic/setup.bash && source /root/arm_ws/devel/setup.bash && roslaunch ur5_notebook detection_localization.launch"
+```
+
+**终端 C — 抓取执行器**
+
+```powershell
+docker exec -it ur5_grasp_kinetic bash -lc "cd /root/arm_ws && source /opt/ros/kinetic/setup.bash && source /root/arm_ws/devel/setup.bash && roslaunch ur5_notebook grasp_executor.launch reach_radius_xy:=0.92"
+```
+
+等到 `grasp_executor ready`。**C 与 D 的 `reach_radius_xy` 应一致**（见 14.4）。
+
+**终端 D — 任务管理器**（见 14.2 / 14.3）
+
+运行期间 **A/B/C 全程保持，不要 Ctrl+C**。D 会等每步 `done` 后再发下一步（默认间隔 5s）。
+
+若已在容器内 bash，A 可改为：`roslaunch ur5_notebook assignment_env.launch seed:=42 gui:=true`。
+
+### 14.2 Demo A：顺序连抓（Extension 1）
+
+| 任务表 | 说明 |
+|--------|------|
+| `config/task_table_demo_sequence.yaml` | 可自定义多步顺序（当前示例含 2/6/5） |
+| `config/task_table_demo_sequence_5_6.yaml` | 另备序列示例 |
+
+**稳定录屏推荐**：顺序 **6 → 5**（第一步手臂最干净时抓较远的 6，再抓 5）。可在 YAML 里只保留两行并设 `order: 1/2`。含 **digit 2 → grid 2** 时机械臂会去上排边缘，路径长、偶发 Gazebo detach 后 segfault；三步连抓比两步更容易崩。
+
+**终端 D（序列模式 + skip）**
+
+```powershell
+docker exec -it ur5_grasp_kinetic bash -lc "cd /root/arm_ws && source /opt/ros/kinetic/setup.bash && source /root/arm_ws/devel/setup.bash && roslaunch ur5_notebook task_manager.launch task_table_yaml:=/root/arm_ws/src/ur5_grasp_in_gazebo/ur5_ROS-Gazebo/config/task_table_demo_sequence.yaml enable_extension7_scheduler:=false unreachable_policy:=skip reach_radius_xy:=0.97 inter_grasp_delay:=5.0"
+```
+
+若用 **6→5 两步稳定 demo**，把 `reach_radius_xy` 改为 `0.92`，C 终端 launch 也改为 `reach_radius_xy:=0.92`。
+
+**预期日志**
+
+- `Executing step: step_idx=0 pick_digit=...`
+- 每步 `Step finished`；步骤间 `inter_grasp_delay: waiting 5.0s`
+- 不可执行步骤输出 JSON `event: skipped`（含 `reason_code`），继续后续步骤
+- 全部结束：`All steps done.` 或 `No executable steps left. skipped=N`
+
+### 14.3 Demo B：优先级 + 距离调度（Extension 7）
+
+任务表：`config/task_table_demo_scheduler.yaml`（6 / 2 / 5 三项；**2 放置到上排 grid 2 在默认半径下不可达**，用于演示 skip）。
+
+**终端 D（调度模式）**
+
+```powershell
+docker exec -it ur5_grasp_kinetic bash -lc "cd /root/arm_ws && source /opt/ros/kinetic/setup.bash && source /root/arm_ws/devel/setup.bash && roslaunch ur5_notebook task_manager.launch task_table_yaml:=/root/arm_ws/src/ur5_grasp_in_gazebo/ur5_ROS-Gazebo/config/task_table_demo_scheduler.yaml enable_extension7_scheduler:=true alpha:=0.6 unreachable_policy:=skip reach_radius_xy:=0.92 inter_grasp_delay:=5.0"
+```
+
+调度公式（仅在当前 stable 且预检通过的候选里排序）：
+
+```text
+score = priority - alpha * distance3D
+distance3D = sqrt(x² + y² + z²)    # pose_base
+```
+
+**预期**：执行顺序可能与 YAML 里 `order` 不同；digit 2 常见 `place_unreachable` → `skipped`；其余如 5→6 正常抓放。
+
+### 14.4 关键参数
+
+| 参数 | 默认 | Demo 建议 | 说明 |
+|------|------|-----------|------|
+| `unreachable_policy` | `fail` | `skip` | `skip` 跳过不可达/缺 stable 步骤；`fail` 任一步失败即停 |
+| `reach_radius_xy` | `0.80` | A: `0.97`（含 2）/ `0.92`（6→5）；B: `0.92` | base 系 `hypot(x,y)` 抓取与放置预检半径；**C 与 D 需一致** |
+| `inter_grasp_delay` | `5.0` | `5.0` | 连抓步骤间隔，给 Gazebo 控制器收敛 |
+| `enable_extension7_scheduler` | `false` | A: `false`；B: `true` | 是否启用调度 |
+| `alpha` | `0.6` | `0.6` | 调度距离权重 |
+
+**`reach_radius_xy` 与 skip 的关系**（`spawn_offset_y=0.7`，seed 42 典型值）：
+
+| 半径 | 效果 |
+|------|------|
+| `0.92` | grid 2 **放置**预检失败 → skip 2；6/5 下排一般可执行 |
+| `0.97` | grid 2 放置预检通过，可抓放 2，但运动大、稳定性差 |
+
+调小 `reach_radius_xy` 可**故意触发 skip** 做演示；调大则放行边缘工位，路径更长。
+
+### 14.5 故障排查
+
+**VNC / Gazebo 打不开或 gzclient 崩溃**
+
+进程未杀干净或 Xvfb 残留。在新终端执行：
+
+```powershell
+docker exec ur5_grasp_kinetic bash -c "killall -9 gzserver gzclient rosmaster roslaunch move_group Xvfb x11vnc fluxbox 2>/dev/null; sleep 2; echo cleanup_done"
+```
+
+仍异常则：`docker restart ur5_grasp_kinetic`，再按 A→B→C→D 顺序重启。  
+不要用 `pkill -9 -f roslaunch` 写在含 `roslaunch` 的同一行命令里（会误杀自身）。
+
+**D 报 `timeout waiting /grasp/status done`**
+
+- C 终端被 Ctrl+C 或未启动
+- Gazebo `gzserver` 已 segfault（连抓多次 detach 后偶发）；看 A 终端是否有 `Segmentation fault`
+- 处理：重启 A/C，再跑 D；不要提前 Ctrl+C D
+
+**第二步抓放失败**
+
+连抓时第二步目标更远、控制器未收敛。加大 `inter_grasp_delay`，或任务表改为 **先远后近（6→5）**。
+
+**详细联调记录**
+
+见 `ur5_ROS-Gazebo/docs/TASK_MANAGER_DELIVERY.md` 第 11 节。

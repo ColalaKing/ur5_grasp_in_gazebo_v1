@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- 先 5 后 6 直连连抓：放完 5 不回 home，从 place_retreat 直接规划到 6 -->
+  <arg name="inter_step_delay" default="3.0"/>
+  <arg name="first_go_up_before_grasp" default="true"/>
+  <arg name="final_return_home_after_grasp" default="true"/>
+  <arg name="grasp_executor_ns" default="/grasp_executor"/>
+
+  <node name="sequential_grasp_5_6" pkg="ur5_notebook" type="sequential_grasp_5_6.py"
+        output="screen">
+    <param name="inter_step_delay" value="$(arg inter_step_delay)"/>
+    <param name="first_go_up_before_grasp" value="$(arg first_go_up_before_grasp)"/>
+    <param name="final_return_home_after_grasp" value="$(arg final_return_home_after_grasp)"/>
+    <param name="grasp_executor_ns" value="$(arg grasp_executor_ns)"/>
+  </node>
+</launch>

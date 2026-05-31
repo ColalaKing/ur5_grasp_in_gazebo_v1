@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import json
 import math
+import re
 import sys
 import threading
 from copy import deepcopy
@@ -30,6 +31,9 @@ from ur5_notebook.msg import GraspTargetArray
 
 DEFAULT_DOWN_ORIENTATION = (0.4811, 0.4994, -0.5121, 0.5069)
 
+# 与 assignment_env / wrist_camera_view_pose 一致（仿真待命姿态，不是 SRDF "up"）
+DEFAULT_HOME_JOINTS = [-1.57691, -1.71667, 1.79266, -1.67721, -1.57050, 0.0]
+
 # block_localization 现在已经把 pose_base 真正转换到 base_link 系，
 # 所以 grasp_executor 不再需要对它手动减 spawn 偏移。
 # 但仍保留 GAZEBO_SPAWN_* 给 transform_world_pose_to_base 使用——
@@ -43,8 +47,8 @@ GAZEBO_SPAWN_X = 0.0
 GAZEBO_SPAWN_Y = 0.7
 GAZEBO_SPAWN_Z = 0.2
 
-# UR5 base_link 系下水平最大可达半径（保守值，留余量）
-UR5_REACH_XY = 0.80
+# UR5 base_link 系下水平最大可达半径（保守值）；与 task_manager reach_radius_xy 对齐
+DEFAULT_REACH_RADIUS_XY = 0.80
 VACUUM_SERVICES = [
     "/ur5/vacuum_gripper",
     "/ur5/vacuum_gripper1",
@@ -106,6 +110,34 @@ class GraspExecutor(object):
         )
         self.cartesian_min_fraction = float(
             rospy.get_param("~cartesian_min_fraction", 0.80)
+        )
+        # 连抓时常见问题：上一段运动还没停稳就做 cartesian 规划，
+        # 导致 plan 起点和真实 current 错位，execute 立刻超容差 ABORT。
+        # 这两个参数控制“等停稳 + 起点漂移校验/重规划”。
+        self.settle_timeout = float(rospy.get_param("~settle_timeout", 8.0))
+        # 0.008 比 Gazebo 停稳后的残余抖动地板还低，会让 wait_until_settled 永远超时；
+        # 取 0.02 让“已停稳”判定能在抖动地板上成立。
+        self.settle_eps = float(rospy.get_param("~settle_eps", 0.02))
+        self.post_settle_extra = float(rospy.get_param("~post_settle_extra", 3.0))
+        self.cartesian_start_drift_tol = float(
+            rospy.get_param("~cartesian_start_drift_tol", 0.05)
+        )
+        self.cartesian_plan_attempts = int(
+            rospy.get_param("~cartesian_plan_attempts", 5)
+        )
+        self.pose_plan_attempts = int(rospy.get_param("~pose_plan_attempts", 3))
+        self.reach_radius_xy = float(
+            rospy.get_param("~reach_radius_xy", DEFAULT_REACH_RADIUS_XY)
+        )
+        self.go_up_before_grasp = self.as_bool(
+            rospy.get_param("~go_up_before_grasp", True)
+        )
+        self.return_home_after_grasp = self.as_bool(
+            rospy.get_param("~return_home_after_grasp", True)
+        )
+        self.home_named_target = rospy.get_param("~home_named_target", "up")
+        self.home_joint_positions = self.parse_joint_positions(
+            rospy.get_param("~home_joint_positions", DEFAULT_HOME_JOINTS)
         )
         self.moveit_startup_delay = float(
             rospy.get_param("~moveit_startup_delay", 3.0)
@@ -169,11 +201,36 @@ class GraspExecutor(object):
 
         self.publish_status("idle", "grasp_executor ready")
         rospy.loginfo(
-            "grasp_executor ready: targets=%s command=%s ee=%s",
+            "grasp_executor ready: targets=%s command=%s ee=%s home_joints=%s go_up_before=%s",
             self.targets_topic,
             self.command_topic,
             self.end_effector_link,
+            ["%.5f" % v for v in (self.home_joint_positions or [])],
+            self.go_up_before_grasp,
         )
+
+    def parse_joint_positions(self, value):
+        if value is None or value == "":
+            return None
+        if isinstance(value, list):
+            positions = [float(item) for item in value]
+        else:
+            tokens = [item for item in re.split(r"[\s,\[\]]+", str(value)) if item]
+            positions = [float(item) for item in tokens]
+        if len(positions) != 6:
+            raise ValueError("home_joint_positions must contain exactly 6 values")
+        return positions
+
+    def move_to_home_pose(self):
+        """回到仿真 view 待命关节角（assignment_env 启动后约 8s 的姿态）。"""
+        self.arm.set_start_state_to_current_state()
+        if self.home_joint_positions:
+            self.arm.set_joint_value_target(self.home_joint_positions)
+        else:
+            self.arm.set_named_target(self.home_named_target)
+        self.arm.go(wait=True)
+        self.arm.stop()
+        self.wait_until_settled()
 
     def as_bool(self, value):
         if isinstance(value, bool):
@@ -209,7 +266,7 @@ class GraspExecutor(object):
             # target.pose_base 已经是真 base_link 系坐标，直接判工作半径。
             bx = target.pose_base.position.x
             by = target.pose_base.position.y
-            if math.hypot(bx, by) <= UR5_REACH_XY:
+            if math.hypot(bx, by) <= self.reach_radius_xy:
                 reachable[cid] = target
         with self.lock:
             self.latest_targets = targets
@@ -484,67 +541,182 @@ class GraspExecutor(object):
             plan = plan[1]
         return bool(plan and getattr(plan, "joint_trajectory", None) and plan.joint_trajectory.points)
 
-    def move_to_pose(self, pose, label):
-        # 等机器人停稳：上一段 execute(wait=True) 返回时 PID 还有残余速度，
-        # 立刻读 current_state 会和 controller 的 stop_trajectory_duration 撞车，
-        # 导致下一段 controller failed during execution。
-        rospy.sleep(1.0)
-        self.arm.set_start_state_to_current_state()
-        self.arm.set_pose_target(pose, self.end_effector_link)
-        plan = self.arm.plan()
-        if not plan:
-            self.publish_status("failed", "%s planning failed" % label)
+    def recover_to_up(self, label):
+        """控制器 ABORT 后停稳；持物时不回 view home（否则会大幅甩臂）。"""
+        try:
+            self.arm.stop()
+        except Exception:
+            pass
+        if self.attach_active:
+            rospy.logwarn(
+                "%s: block attached, skip home recover (settle only)", label
+            )
+            rospy.sleep(self.post_settle_extra)
+            self.wait_until_settled()
             return False
-        success = self.arm.execute(plan, wait=True)
-        self.arm.clear_pose_targets()
-        if not success:
-            self.publish_status("failed", "%s execution failed" % label)
+        try:
+            rospy.logwarn("%s: recovering to sim view home after abort", label)
+            self.move_to_home_pose()
+            return True
+        except Exception as exc:
+            rospy.logwarn("%s: recover to home failed: %s", label, exc)
             return False
-        return True
+
+    def move_to_pose(self, pose, label, recover_on_abort=True):
+        """Joint-space MoveIt move (approach / place approach). 连抓时须等停稳再规划/执行。"""
+        attempts = max(1, int(self.pose_plan_attempts))
+        for attempt in range(attempts):
+            if not self.wait_until_settled():
+                rospy.logwarn(
+                    "%s arm not fully settled before planning (attempt %d/%d)",
+                    label, attempt + 1, attempts,
+                )
+            self.arm.set_start_state_to_current_state()
+            self.arm.set_pose_target(pose, self.end_effector_link)
+            plan = self.arm.plan()
+            self.arm.clear_pose_targets()
+            if not plan:
+                if attempt + 1 < attempts:
+                    continue
+                self.publish_status("failed", "%s planning failed" % label)
+                return False
+            success = self.arm.execute(plan, wait=True)
+            if not success:
+                rospy.logwarn(
+                    "%s execute aborted, retry %d/%d",
+                    label, attempt + 1, attempts,
+                )
+                if recover_on_abort:
+                    self.recover_to_up(label)
+                else:
+                    try:
+                        self.arm.stop()
+                    except Exception:
+                        pass
+                    rospy.sleep(self.post_settle_extra)
+                    self.wait_until_settled()
+                continue
+            if not self.wait_until_settled():
+                rospy.logwarn(
+                    "%s post-execute still settling (attempt %d/%d)",
+                    label, attempt + 1, attempts,
+                )
+                rospy.sleep(self.post_settle_extra)
+                if not self.wait_until_settled():
+                    rospy.logwarn("%s extra settle wait applied", label)
+            return True
+        self.publish_status("failed", "%s execution failed" % label)
+        return False
+
+    def wait_until_settled(self):
+        """阻塞直到机械臂关节真正停下来（连续多次采样位置几乎不变），
+        这样紧接着的 cartesian 规划才能钉到与真实位姿一致的起点。
+        固定 sleep 在多步连抓时不够（大关节收敛慢），这里按实际停稳判断。
+        返回 True 表示已停稳，False 表示超时仍在动。"""
+        poll = 0.1
+        stable_needed = 3
+        stable = 0
+        deadline = rospy.get_time() + self.settle_timeout
+        prev = self.arm.get_current_joint_values()
+        while rospy.get_time() < deadline and not rospy.is_shutdown():
+            rospy.sleep(poll)
+            cur = self.arm.get_current_joint_values()
+            if cur and prev and len(cur) == len(prev):
+                max_delta = max(abs(c - p) for c, p in zip(cur, prev))
+            else:
+                max_delta = 1.0
+            prev = cur
+            if max_delta < self.settle_eps:
+                stable += 1
+                if stable >= stable_needed:
+                    return True
+            else:
+                stable = 0
+        return False
 
     def move_cartesian(self, waypoints, label, slow=False):
         """slow 参数保留但已无效：Gazebo PID 在低速下反而更容易触发 path_tolerance，
         统一用正常速度，下降段距离短不会撞飞方块."""
-        # cartesian 规划用 set_start_state_to_current_state 显式钉住起点。
-        # 必须等上一段 execute 完全停稳（controller 的 stop_trajectory_duration=0.5
-        # 加 PID 收敛尾巴），否则 plan 出来的起点和真正下发时的 current 错位，
-        # 触发 "Invalid Trajectory: start point deviates" 直接 ABORT。
-        # 0.6s 在某些种子下不够，1.5s 给足余量；多花的时间无害。
-        rospy.sleep(1.5)
-        self.arm.set_start_state_to_current_state()
         self.arm.set_max_velocity_scaling_factor(self.max_velocity_scaling)
         self.arm.set_max_acceleration_scaling_factor(self.max_acceleration_scaling)
-        plan, fraction = self.arm.compute_cartesian_path(
-            waypoints, 0.01, 0.0, True
-        )
-        if fraction < self.cartesian_min_fraction:
-            self.publish_status(
-                "failed",
-                "%s cartesian path incomplete (fraction=%.2f)" % (label, fraction),
+
+        attempts = max(1, int(self.cartesian_plan_attempts))
+        plan = None
+        for attempt in range(attempts):
+            # 1) 等机械臂真正停稳再钉起点，避免 plan 起点和 current 错位。
+            if not self.wait_until_settled():
+                rospy.logwarn(
+                    "%s arm not fully settled before planning (attempt %d/%d)",
+                    label, attempt + 1, attempts,
+                )
+            self.arm.set_start_state_to_current_state()
+            plan, fraction = self.arm.compute_cartesian_path(
+                waypoints, 0.01, 0.0, True
             )
-            return False
-        # 诊断：打印 plan 里第一个点和最后一个点的 joint 值，方便对比 actual_state
-        try:
+            if fraction < self.cartesian_min_fraction:
+                if attempt + 1 < attempts:
+                    rospy.logwarn(
+                        "%s cartesian fraction=%.2f, replanning (attempt %d/%d)",
+                        label, fraction, attempt + 1, attempts,
+                    )
+                    continue
+                self.publish_status(
+                    "failed",
+                    "%s cartesian path incomplete (fraction=%.2f)" % (label, fraction),
+                )
+                return False
+
+            # 2) 校验 plan 起点与当前关节的漂移；错位则重规划，避免 execute 超容差 ABORT。
             pts = plan.joint_trajectory.points
-            if pts:
-                rospy.loginfo(
-                    "[diag] %s plan: %d pts, dur=%.2fs, start=%s, end=%s",
-                    label, len(pts),
-                    pts[-1].time_from_start.to_sec(),
-                    ["%.3f" % v for v in pts[0].positions],
-                    ["%.3f" % v for v in pts[-1].positions],
+            start_pos = list(pts[0].positions) if pts else []
+            cur = self.arm.get_current_joint_values()
+            if start_pos and cur and len(start_pos) == len(cur):
+                drift = max(abs(s - c) for s, c in zip(start_pos, cur))
+            else:
+                drift = 0.0
+            rospy.loginfo(
+                "[diag] %s plan: %d pts, dur=%.2fs, start=%s, end=%s",
+                label, len(pts),
+                pts[-1].time_from_start.to_sec() if pts else 0.0,
+                ["%.3f" % v for v in start_pos],
+                ["%.3f" % v for v in pts[-1].positions] if pts else [],
+            )
+            rospy.loginfo(
+                "[diag] %s current_joint=%s drift=%.3f",
+                label, ["%.3f" % v for v in cur], drift,
+            )
+            if drift > self.cartesian_start_drift_tol and attempt + 1 < attempts:
+                rospy.logwarn(
+                    "%s start drift=%.3f > tol=%.3f, replanning (attempt %d/%d)",
+                    label, drift, self.cartesian_start_drift_tol, attempt + 1, attempts,
                 )
-                cur = self.arm.get_current_joint_values()
-                rospy.loginfo(
-                    "[diag] %s current_joint=%s",
-                    label, ["%.3f" % v for v in cur],
+                continue
+            if drift > self.cartesian_start_drift_tol:
+                rospy.logwarn(
+                    "%s start drift=%.3f > tol=%.3f, extra settle before execute",
+                    label, drift, self.cartesian_start_drift_tol,
                 )
-        except Exception as exc:
-            rospy.logwarn("[diag] plan dump failed: %s", exc)
+                rospy.sleep(self.post_settle_extra)
+                self.wait_until_settled()
+                self.arm.set_start_state_to_current_state()
+                plan, fraction = self.arm.compute_cartesian_path(
+                    waypoints, 0.01, 0.0, True
+                )
+                if fraction < self.cartesian_min_fraction:
+                    self.publish_status(
+                        "failed",
+                        "%s cartesian path incomplete after settle (fraction=%.2f)"
+                        % (label, fraction),
+                    )
+                    return False
+            break
+
         success = self.arm.execute(plan, wait=True)
         if not success:
-            # execute 失败大多是机械臂真没到位（Gazebo abort），
-            # 继续后面流程会导致空抓。直接当失败处理。
+            try:
+                self.arm.stop()
+            except Exception:
+                pass
             self.publish_status(
                 "failed",
                 "%s cartesian execute aborted (controller failed)" % label,
@@ -579,16 +751,17 @@ class GraspExecutor(object):
             grasp_pose = self.make_pose(target, self.grasp_z_offset)
             retreat_pose = self.make_pose(target, self.retreat_z_offset)
 
-            # 先回到 named "home" / "up" 命名姿态，保证每次抓取从已知良好状态出发。
-            # 不强制成功（如果 SRDF 没定义 named target，会在 except 里跳过）。
-            try:
-                self.arm.set_start_state_to_current_state()
-                self.arm.set_named_target("up")
-                self.arm.go(wait=True)
-                self.arm.stop()
-                rospy.sleep(0.3)
-            except Exception as exc:
-                rospy.logwarn("[home] cannot return to up named pose: %s", exc)
+            go_up_before = self.as_bool(rospy.get_param("~go_up_before_grasp", True))
+            if go_up_before:
+                try:
+                    self.move_to_home_pose()
+                except Exception as exc:
+                    rospy.logwarn("[home] cannot return to sim view home: %s", exc)
+            else:
+                rospy.loginfo(
+                    "skip go_up_before_grasp: plan from current pose to class %d",
+                    class_id,
+                )
 
             if not self.can_reach_pose(approach_pose):
                 self.publish_status(
@@ -600,6 +773,15 @@ class GraspExecutor(object):
 
             if not self.move_to_pose(approach_pose, "approach"):
                 return
+
+            # approach 到极限姿态后关节常仍在振荡；不额外等稳就直接 cartesian 会 drift abort
+            if not self.wait_until_settled():
+                rospy.logwarn(
+                    "post-approach: arm still moving, waiting %.1fs extra",
+                    self.post_settle_extra,
+                )
+                rospy.sleep(self.post_settle_extra)
+                self.wait_until_settled()
 
             # 第一段：approach -> pre_grasp（正常速度）
             self.publish_status("descending", "pre-descend to class %d top" % class_id)
@@ -671,32 +853,65 @@ class GraspExecutor(object):
                         "moving digit %d to grid %d" % (class_id, class_id),
                         {"class_id": class_id},
                     )
-                    if self.move_to_pose(place_approach, "place approach"):
+                    if self.move_to_pose(
+                        place_approach, "place approach", recover_on_abort=False
+                    ):
                         if self.move_cartesian([place_touchdown], "place descend"):
                             self.detach_block()
                             self.set_gripper(False)
                             rospy.sleep(1.5)
-                            self.move_to_pose(place_retreat, "place retreat")
+                            self.move_to_pose(
+                                place_retreat, "place retreat", recover_on_abort=False
+                            )
                             placed = True
+
+            return_home_after = self.as_bool(
+                rospy.get_param("~return_home_after_grasp", True)
+            )
 
             if not placed:
                 self.detach_block()
                 self.set_gripper(False)
-
-            # 任务结束后回到 named "up" 姿态，方便下次抓取 / 多次连续操作。
-            try:
+                try:
+                    self.arm.stop()
+                except Exception:
+                    pass
+                rospy.sleep(1.0)
+                self.wait_until_settled()
+                if return_home_after:
+                    try:
+                        self.publish_status(
+                            "returning_home",
+                            "returning to sim view home after place failure",
+                            {"class_id": class_id},
+                        )
+                        self.move_to_home_pose()
+                    except Exception as exc:
+                        rospy.logwarn(
+                            "[home] cannot return after place failure: %s", exc
+                        )
                 self.publish_status(
-                    "returning_home",
-                    "returning to home (up) pose",
-                    {"class_id": class_id},
+                    "failed",
+                    "place failed for class %d" % class_id,
+                    {"class_id": class_id, "placed": False},
                 )
-                self.arm.set_start_state_to_current_state()
-                self.arm.set_named_target("up")
-                self.arm.go(wait=True)
-                self.arm.stop()
-                rospy.sleep(0.3)
-            except Exception as exc:
-                rospy.logwarn("[home] cannot return to up named pose: %s", exc)
+                return
+
+            if return_home_after:
+                try:
+                    self.publish_status(
+                        "returning_home",
+                        "returning to sim view home pose",
+                        {"class_id": class_id},
+                    )
+                    self.move_to_home_pose()
+                except Exception as exc:
+                    rospy.logwarn("[home] cannot return to sim view home: %s", exc)
+            else:
+                rospy.loginfo(
+                    "skip return_home_after_grasp: hold pose after class %d for chained grasp",
+                    class_id,
+                )
 
             self.publish_status(
                 "done",
