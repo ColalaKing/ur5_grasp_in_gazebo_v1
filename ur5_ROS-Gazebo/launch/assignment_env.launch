@@ -43,6 +43,14 @@
 
   <remap if="$(arg sim)" from="/follow_joint_trajectory" to="/arm_controller/follow_joint_trajectory"/>
 
+  <!-- 放宽 MoveIt 执行前的起点容差。默认 allowed_start_tolerance=0.01rad，
+       但 Gazebo 控制器下机械臂停稳后仍有 ~0.01rad 残余抖动，导致轨迹下发时
+       触发 "Invalid Trajectory: start point deviates from current robot state
+       more than 0.01" 直接 ABORT（连抓时几乎必现）。设为 0.1 吸收残余抖动。 -->
+  <arg name="allowed_start_tolerance" default="0.1"/>
+  <param name="/move_group/trajectory_execution/allowed_start_tolerance"
+         value="$(arg allowed_start_tolerance)"/>
+
   <include file="$(find ur5_moveit_config)/launch/move_group.launch">
     <arg name="limited" default="$(arg limited)"/>
     <arg name="debug" default="$(arg debug)"/>
