@@ -1,0 +1,6 @@
+trial,target_class_id,recognition_success,planning_success,grasp_success,task_time_sec,terminal_state,terminal_message
+1,6,True,True,True,18.809202909469604,done,grasp complete for class 6
+2,6,True,True,True,18.69992208480835,done,grasp complete for class 6
+3,6,True,True,True,18.392998933792114,done,grasp complete for class 6
+4,6,True,True,True,19.349534034729004,done,grasp complete for class 6
+5,6,True,True,True,18.60285186767578,done,grasp complete for class 6

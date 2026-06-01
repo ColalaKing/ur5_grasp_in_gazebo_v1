@@ -31,18 +31,17 @@
 
 ### 2.1 关于「0放1、3放3、1放2」的说明
 
-当前 **C 模块 `grasp_executor` 的放置规则**为：抓取 `digit_N` 后 **固定放到 `grid_N`**（`class_id == grid_id`）。
+当前 **C 模块 `grasp_executor` 已支持结构化任务命令**：
 
-因此可执行步骤必须满足：
-
-```text
-pick_digit == place_grid == final_class_id   （且 digit 在 1~6）
+```json
+{"pick_digit": 3, "place_grid": 5}
 ```
 
-- **3放3**：合法，可执行；
-- **0放1、1放2**：`pick_digit ≠ place_grid`，`task_manager` 在**下发前**判为映射不合法，输出 `不可放置失败` 并 **全局停止**（fail 策略下）。
+因此 `pick_digit` 与 `place_grid` 可以分离，`pick_digit` 支持 0~9，
+`place_grid` 支持 1~6。
 
-若作业演示需要「跨格子放置」，需 C 模块扩展放置映射；E 模块已预留映射校验与失败上报。
+- **3放3**：合法，可执行；
+- **0放1、1放2、3放5**：映射合法；是否执行成功取决于当前识别稳定性、抓取点可达性和放置格可达性。
 
 ---
 
@@ -52,7 +51,7 @@ pick_digit == place_grid == final_class_id   （且 digit 在 1~6）
 detection + block_localization
         │
         ▼
-/localization/grasp_targets  ──►  task_manager  ──►  /grasp/target_class_id
+/localization/grasp_targets  ──►  task_manager  ──►  /grasp/task_command
         │                              ▲                    │
         │                              │                    ▼
         └──────────────────────  /grasp/status  ◄──  grasp_executor
@@ -61,7 +60,8 @@ detection + block_localization
 | 话题 | 方向（相对 task_manager） | 含义 |
 |------|---------------------------|------|
 | `/localization/grasp_targets` | 订阅 | 稳定检测目标（含 `pose_base` / `pose_world`） |
-| `/grasp/target_class_id` | 发布 | 下发抓取命令（`Int32`，值为 `place_grid`） |
+| `/grasp/task_command` | 发布 | 下发结构化抓放命令（JSON，含 `pick_digit` / `place_grid`） |
+| `/grasp/target_class_id` | 发布 | 兼容旧接口（`Int32`，表示抓 N 放 N） |
 | `/grasp/status` | 订阅 | 执行状态 JSON（`idle/approaching/.../done/failed`） |
 
 ---
@@ -76,7 +76,7 @@ BUILD_TASK_QUEUE
     → SELECT_NEXT_TASK          # 顺序模式或拓展7调度
     →（可选）EXECUTABILITY_PRECHECK  # skip/fail
     → WAIT_STABLE_TARGET        # 等待 pick_digit 出现在 stable 集合
-    → SEND_PICK_AND_PLACE       # 发布 /grasp/target_class_id
+    → SEND_PICK_AND_PLACE       # 发布 /grasp/task_command
     → WAIT_GRASP_STATUS_DONE    # 等待 state==done
     →（成功）下一步 /（失败）GLOBAL_FAIL_STOP
 ```
@@ -150,7 +150,7 @@ grasp_executor [done]: grasp complete for class 6
 | 失败类型 | 典型触发条件 |
 |----------|----------------|
 | **检测失败** | 规定时间内 `pick_digit` 未出现在 stable 目标中 |
-| **不可放置失败** | `pick_digit≠place_grid`；digit=0；放置格/抓取点预检不可达（fail 策略） |
+| **不可放置失败** | `pick_digit` 不在 0~9；`place_grid` 不在 1~6；放置格/抓取点预检不可达（fail 策略） |
 | **规划失败** | `/grasp/status` 含 planning/cartesian 失败，或等待 `done` 超时 |
 | **抓取失败** | 执行/控制器/vacuum/attach 失败 |
 
@@ -285,7 +285,7 @@ docker exec -it ur5_grasp_kinetic bash -lc "cd /root/arm_ws && source /opt/ros/k
 
 ```bash
 # 终端 A/B/C 同上，终端 D 改为：
-docker exec -it ur5_grasp_kinetic bash -lc "cd /root/arm_ws && source /opt/ros/kinetic/setup.bash && source /root/arm_ws/devel/setup.bash && rostopic pub -1 /grasp/target_class_id std_msgs/Int32 'data: 6'"
+docker exec -it ur5_grasp_kinetic bash -lc "cd /root/arm_ws && source /opt/ros/kinetic/setup.bash && source /root/arm_ws/devel/setup.bash && rostopic pub -1 /grasp/task_command std_msgs/String 'data: \"{\\\"pick_digit\\\": 3, \\\"place_grid\\\": 5}\"'"
 
 docker exec -it ur5_grasp_kinetic bash -lc "cd /root/arm_ws && source /opt/ros/kinetic/setup.bash && source /root/arm_ws/devel/setup.bash && rostopic echo /grasp/status"
 ```
@@ -328,7 +328,7 @@ docker exec -it ur5_grasp_kinetic bash -lc "cd /root/arm_ws && source /opt/ros/k
 | 11 | 开录制时易失败，关录制较稳 | 录屏/VNC 负载高，Gazebo 控制器跟不上 | 验收时先关录制；或只录单步成功片段 |
 | 12 | 调度 demo 先抓 5 再抓 6 易崩 | `priority` 相同时公式选**更近的 5**；第二步 6 更远 | 调度表设 **6 的 priority 高于 5**；或顺序 demo 用 `6→5` |
 | 13 | digit 2 总被 skip | **grid 2 在上排**，放置点 `place_unreachable`（与 seed 无关） | 预期行为；用于演示 skip；演示抓放请用 grid 4/5/6 |
-| 14 | 「加了 task_manager 就不行」 | task_manager 只发 `/grasp/target_class_id`；**固定序列 + 连抓** 暴露仿真极限 | 对比 README §13 单步 `rostopic pub`；确认 E 与 C 分工 |
+| 14 | 「加了 task_manager 就不行」 | task_manager 只负责任务下发；**固定序列 + 连抓** 暴露仿真极限 | 对比单步 `/grasp/task_command`；确认 E 与 C 分工 |
 | 15 | 容器反复试验后整体变抖 | 长时间试验 + ABORT 累积 | `docker restart ur5_grasp_kinetic` 后按 A→B→C→D 干净启动 |
 
 ### 11.2 关键结论（答辩可用）
@@ -341,11 +341,12 @@ docker exec -it ur5_grasp_kinetic bash -lc "cd /root/arm_ws && source /opt/ros/k
 
 | 位置 | 改动要点 |
 |------|----------|
-| `task_manager.py` | 启动预热、`skip` 前等待 stable、`inter_grasp_delay`、失败/skip JSON |
-| `task_manager.launch` | 暴露 `unreachable_policy`、`reach_radius_xy`、`inter_grasp_delay` 等 |
+| `task_manager.py` | 启动预热、`skip` 前等待 stable、结构化 `pick_digit/place_grid` 下发、`inter_grasp_delay`、失败/skip JSON |
+| `task_manager.launch` | 暴露 `task_command_topic`、`unreachable_policy`、`reach_radius_xy`、`inter_grasp_delay` 等 |
 | `assignment_env.launch` | `allowed_start_tolerance:=0.1` |
 | `assignment_scene.yaml` | spawn 区间收窄（更靠近 base） |
-| `grasp_executor.py` | 停稳等待、笛卡尔漂移重试、`recover_to_up`、`go_up_before_grasp` / `return_home_after_grasp` 开关 |
+| `grasp_executor.py` | 支持 `/grasp/task_command` 跨格子放置、停稳等待、笛卡尔漂移重试、`recover_to_up`、`go_up_before_grasp` / `return_home_after_grasp` 开关 |
+| `text_task_interface.py` | 解析终端/ROS 话题输入的自然语言任务文本 |
 | `config/task_table_demo_*.yaml` | 顺序 6→5；调度 6 优先于 5 |
 | `sequential_grasp_5_6.py` | 可选：抓 5 不回 home 直连 6（实验脚本，非主交付路径） |
 

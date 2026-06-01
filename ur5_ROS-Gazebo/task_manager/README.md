@@ -9,3 +9,6 @@ Expected responsibility:
 - Coordinate retries only if the team chooses the extension.
 
 This folder should orchestrate modules instead of duplicating detector or controller logic.
+
+Current implementation lives in `../task_manager.py` and publishes structured
+`pick_digit` / `place_grid` commands on `/grasp/task_command`.

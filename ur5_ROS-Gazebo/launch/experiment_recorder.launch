@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="repetitions" default="5"/>
+  <arg name="target_class_id" default="6"/>
+  <arg name="targets_topic" default="/localization/grasp_targets"/>
+  <arg name="command_topic" default="/grasp/target_class_id"/>
+  <arg name="status_topic" default="/grasp/status"/>
+  <arg name="output_dir" default="/root/arm_ws/experiment_results"/>
+  <arg name="detection_timeout" default="20.0"/>
+  <arg name="execution_timeout" default="120.0"/>
+  <arg name="inter_trial_delay" default="5.0"/>
+  <arg name="reset_between_trials" default="false"/>
+  <arg name="stop_before_reset" default="true"/>
+  <arg name="poll_hz" default="10.0"/>
+
+  <node name="experiment_recorder" pkg="ur5_notebook" type="experiment_recorder.py" output="screen">
+    <param name="repetitions" value="$(arg repetitions)"/>
+    <param name="target_class_id" value="$(arg target_class_id)"/>
+    <param name="targets_topic" value="$(arg targets_topic)"/>
+    <param name="command_topic" value="$(arg command_topic)"/>
+    <param name="status_topic" value="$(arg status_topic)"/>
+    <param name="output_dir" value="$(arg output_dir)"/>
+    <param name="detection_timeout" value="$(arg detection_timeout)"/>
+    <param name="execution_timeout" value="$(arg execution_timeout)"/>
+    <param name="inter_trial_delay" value="$(arg inter_trial_delay)"/>
+    <param name="reset_between_trials" value="$(arg reset_between_trials)"/>
+    <param name="stop_before_reset" value="$(arg stop_before_reset)"/>
+    <param name="poll_hz" value="$(arg poll_hz)"/>
+  </node>
+</launch>

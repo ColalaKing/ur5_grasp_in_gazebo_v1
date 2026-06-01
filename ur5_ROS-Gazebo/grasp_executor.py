@@ -72,6 +72,9 @@ class GraspExecutor(object):
             "~targets_topic", "/localization/grasp_targets"
         )
         self.command_topic = rospy.get_param("~command_topic", "/grasp/target_class_id")
+        self.task_command_topic = rospy.get_param(
+            "~task_command_topic", "/grasp/task_command"
+        )
         self.status_topic = rospy.get_param("~status_topic", "/grasp/status")
         self.base_frame = rospy.get_param("~base_frame", "base_link")
         self.world_frame = rospy.get_param("~world_frame", "world")
@@ -197,13 +200,20 @@ class GraspExecutor(object):
             self.command_callback,
             queue_size=1,
         )
+        rospy.Subscriber(
+            self.task_command_topic,
+            String,
+            self.task_command_callback,
+            queue_size=1,
+        )
         rospy.Service("~stop", Empty, self.stop_callback)
 
         self.publish_status("idle", "grasp_executor ready")
         rospy.loginfo(
-            "grasp_executor ready: targets=%s command=%s ee=%s home_joints=%s go_up_before=%s",
+            "grasp_executor ready: targets=%s command=%s task_command=%s ee=%s home_joints=%s go_up_before=%s",
             self.targets_topic,
             self.command_topic,
+            self.task_command_topic,
             self.end_effector_link,
             ["%.5f" % v for v in (self.home_joint_positions or [])],
             self.go_up_before_grasp,
@@ -315,7 +325,77 @@ class GraspExecutor(object):
             )
             return
         thread = threading.Thread(
-            target=self.execute_grasp, args=(class_id,)
+            target=self.execute_grasp, args=(class_id, class_id)
+        )
+        thread.daemon = True
+        thread.start()
+
+    def task_command_callback(self, msg):
+        """Accept structured task commands as JSON on /grasp/task_command.
+
+        Expected payload:
+          {"pick_digit": 3, "place_grid": 5}
+
+        The legacy /grasp/target_class_id Int32 API remains supported and maps
+        class_id N to grid N.
+        """
+        if self.busy:
+            self.publish_status("busy", "grasp already in progress")
+            return
+        try:
+            payload = json.loads(msg.data)
+            pick_digit = int(
+                payload.get(
+                    "pick_digit",
+                    payload.get("class_id", payload.get("target_class_id")),
+                )
+            )
+            place_grid = int(payload.get("place_grid", pick_digit))
+        except Exception as exc:
+            self.publish_status(
+                "rejected",
+                "invalid task command JSON: %s" % exc,
+                {"raw": msg.data},
+            )
+            return
+
+        if pick_digit < 0 or pick_digit > 9:
+            self.publish_status(
+                "rejected",
+                "pick_digit %d out of range [0..9]" % pick_digit,
+                {"pick_digit": pick_digit, "place_grid": place_grid},
+            )
+            return
+        if place_grid < 1 or place_grid > 6:
+            self.publish_status(
+                "rejected",
+                "place_grid %d out of range [1..6]" % place_grid,
+                {"pick_digit": pick_digit, "place_grid": place_grid},
+            )
+            return
+
+        with self.lock:
+            unreachable = (
+                pick_digit in self.latest_targets
+                and pick_digit not in self.latest_reachable
+            )
+            reachable_list = sorted(self.latest_reachable.keys())
+        if unreachable:
+            self.publish_status(
+                "rejected",
+                "class %d is out of UR5 reach. reachable classes: %s"
+                % (pick_digit, reachable_list),
+                {"pick_digit": pick_digit, "place_grid": place_grid},
+            )
+            return
+
+        self.publish_status(
+            "info",
+            "accepted task: pick digit %d -> grid %d" % (pick_digit, place_grid),
+            {"pick_digit": pick_digit, "place_grid": place_grid},
+        )
+        thread = threading.Thread(
+            target=self.execute_grasp, args=(pick_digit, place_grid)
         )
         thread.daemon = True
         thread.start()
@@ -724,7 +804,10 @@ class GraspExecutor(object):
             return False
         return True
 
-    def execute_grasp(self, class_id):
+    def execute_grasp(self, class_id, place_grid=None):
+        if place_grid is None:
+            place_grid = class_id
+        place_grid = int(place_grid)
         self.busy = True
         try:
             target = self.get_target(class_id)
@@ -732,14 +815,19 @@ class GraspExecutor(object):
                 self.publish_status(
                     "failed",
                     "no stable grasp target for class %d" % class_id,
-                    {"class_id": class_id},
+                    {"class_id": class_id, "pick_digit": class_id, "place_grid": place_grid},
                 )
                 return
 
             self.publish_status(
                 "approaching",
-                "moving to class %d" % class_id,
-                {"class_id": class_id, "confidence": target.confidence},
+                "moving to class %d for grid %d" % (class_id, place_grid),
+                {
+                    "class_id": class_id,
+                    "pick_digit": class_id,
+                    "place_grid": place_grid,
+                    "confidence": target.confidence,
+                },
             )
 
             approach_pose = self.make_pose(target, self.approach_z_offset)
@@ -767,7 +855,7 @@ class GraspExecutor(object):
                 self.publish_status(
                     "rejected",
                     "class %d unreachable (no valid approach plan)" % class_id,
-                    {"class_id": class_id},
+                    {"class_id": class_id, "pick_digit": class_id, "place_grid": place_grid},
                 )
                 return
 
@@ -838,8 +926,8 @@ class GraspExecutor(object):
                 return
 
             placed = False
-            if self.enable_place and 1 <= class_id <= 6:
-                place_world = self.grid_pose_world(class_id)
+            if self.enable_place and 1 <= place_grid <= 6:
+                place_world = self.grid_pose_world(place_grid)
                 place_base = self.transform_world_pose_to_base(place_world)
                 if place_base is not None:
                     place_approach = deepcopy(place_base)
@@ -850,8 +938,12 @@ class GraspExecutor(object):
 
                     self.publish_status(
                         "placing",
-                        "moving digit %d to grid %d" % (class_id, class_id),
-                        {"class_id": class_id},
+                        "moving digit %d to grid %d" % (class_id, place_grid),
+                        {
+                            "class_id": class_id,
+                            "pick_digit": class_id,
+                            "place_grid": place_grid,
+                        },
                     )
                     if self.move_to_pose(
                         place_approach, "place approach", recover_on_abort=False
@@ -883,7 +975,11 @@ class GraspExecutor(object):
                         self.publish_status(
                             "returning_home",
                             "returning to sim view home after place failure",
-                            {"class_id": class_id},
+                            {
+                                "class_id": class_id,
+                                "pick_digit": class_id,
+                                "place_grid": place_grid,
+                            },
                         )
                         self.move_to_home_pose()
                     except Exception as exc:
@@ -892,8 +988,13 @@ class GraspExecutor(object):
                         )
                 self.publish_status(
                     "failed",
-                    "place failed for class %d" % class_id,
-                    {"class_id": class_id, "placed": False},
+                    "place failed for class %d to grid %d" % (class_id, place_grid),
+                    {
+                        "class_id": class_id,
+                        "pick_digit": class_id,
+                        "place_grid": place_grid,
+                        "placed": False,
+                    },
                 )
                 return
 
@@ -902,7 +1003,11 @@ class GraspExecutor(object):
                     self.publish_status(
                         "returning_home",
                         "returning to sim view home pose",
-                        {"class_id": class_id},
+                        {
+                            "class_id": class_id,
+                            "pick_digit": class_id,
+                            "place_grid": place_grid,
+                        },
                     )
                     self.move_to_home_pose()
                 except Exception as exc:
@@ -915,8 +1020,13 @@ class GraspExecutor(object):
 
             self.publish_status(
                 "done",
-                "grasp complete for class %d" % class_id,
-                {"class_id": class_id, "placed": placed},
+                "grasp complete for class %d to grid %d" % (class_id, place_grid),
+                {
+                    "class_id": class_id,
+                    "pick_digit": class_id,
+                    "place_grid": place_grid,
+                    "placed": placed,
+                },
             )
         finally:
             self.busy = False
