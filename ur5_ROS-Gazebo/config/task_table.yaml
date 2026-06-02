@@ -1,7 +1,8 @@
 # Task table for task_manager (default)
 #
-# 放置约束：grasp_executor 永远把 digit_x 放到 grid_x，所以每个可执行步骤必须满足
-#   pick_digit == place_grid == final_class_id
+# 放置约束：新版 grasp_executor 支持 pick_digit 和 place_grid 分离，
+# 例如 pick_digit: 3, place_grid: 5 表示抓 3 号方块放到 5 号格。
+# pick_digit 范围 0~9，place_grid 范围 1~6。
 #
 # 可达性结论（UR5 base 系 hypot(x,y) <= reach_radius_xy=0.80）：
 #   放置侧（与 seed 无关，格子位置固定，经 spawn_offset_y=0.7 换算到 base 系）：
@@ -28,5 +29,4 @@ task_table:
     pick_digit: 5
     place_grid: 5
     priority: 8
-
 

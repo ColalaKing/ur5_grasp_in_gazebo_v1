@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="input_topic" default="/task/text_command"/>
+  <arg name="task_command_topic" default="/grasp/task_command"/>
+  <arg name="status_topic" default="/task/text_status"/>
+  <arg name="enable_stdin" default="true"/>
+  <arg name="wait_for_executor" default="true"/>
+  <arg name="wait_timeout" default="5.0"/>
+
+  <node name="text_task_interface" pkg="ur5_notebook" type="text_task_interface.py" output="screen">
+    <param name="input_topic" value="$(arg input_topic)"/>
+    <param name="task_command_topic" value="$(arg task_command_topic)"/>
+    <param name="status_topic" value="$(arg status_topic)"/>
+    <param name="enable_stdin" value="$(arg enable_stdin)"/>
+    <param name="wait_for_executor" value="$(arg wait_for_executor)"/>
+    <param name="wait_timeout" value="$(arg wait_timeout)"/>
+  </node>
+</launch>

@@ -38,7 +38,13 @@ class TaskManager(object):
         self.command_topic = rospy.get_param(
             "~command_topic", "/grasp/target_class_id"
         )
+        self.task_command_topic = rospy.get_param(
+            "~task_command_topic", "/grasp/task_command"
+        )
         self.status_topic = rospy.get_param("~status_topic", "/grasp/status")
+        self.use_structured_task_command = self.as_bool(
+            rospy.get_param("~use_structured_task_command", True)
+        )
 
         # Task table (loaded via rosparam YAML into this node namespace)
         # YAML format:
@@ -125,9 +131,11 @@ class TaskManager(object):
         self.skipped_steps = []
 
         rospy.loginfo(
-            "task_manager started: targets=%s command=%s status=%s steps=%d multi=%s scheduler=%s",
+            "task_manager started: targets=%s command=%s task_command=%s structured=%s status=%s steps=%d multi=%s scheduler=%s",
             self.targets_topic,
             self.command_topic,
+            self.task_command_topic,
+            str(self.use_structured_task_command),
             self.status_topic,
             len(self.steps),
             str(self.enable_extension1_multi),
@@ -142,6 +150,9 @@ class TaskManager(object):
         )
 
         self.command_pub = rospy.Publisher(self.command_topic, Int32, queue_size=1)
+        self.task_command_pub = rospy.Publisher(
+            self.task_command_topic, String, queue_size=1
+        )
         self.run()
 
     def as_bool(self, value):
@@ -257,13 +268,10 @@ class TaskManager(object):
         pick_digit = int(step["pick_digit"])
         place_grid = int(step["place_grid"])
 
-        # Requirement: digit=0 is rejected, and placement must satisfy grid_id == class_id.
-        if pick_digit == 0 or place_grid == 0:
-            return False, "pick_digit/place_grid includes 0 (digit=0 is rejected by grasp_executor)"
-        if pick_digit < 1 or pick_digit > 6 or place_grid < 1 or place_grid > 6:
-            return False, "pick_digit/place_grid out of [1..6]"
-        if pick_digit != place_grid:
-            return False, "pick_digit != place_grid; grasp_executor always places digit_x to grid_x"
+        if pick_digit < 0 or pick_digit > 9:
+            return False, "pick_digit out of [0..9]"
+        if place_grid < 1 or place_grid > 6:
+            return False, "place_grid out of [1..6]"
         return True, ""
 
     def grid_world_xy(self, grid_id):
@@ -331,7 +339,7 @@ class TaskManager(object):
             time.sleep(1.0 / self.poll_hz)
         return False
 
-    def wait_for_grasp_done(self, expected_final_class_id, sent_ts):
+    def wait_for_grasp_done(self, expected_pick_digit, expected_place_grid, sent_ts):
         deadline = time.time() + self.status_wait_timeout
         while time.time() < deadline and not rospy.is_shutdown():
             payload = self.get_status_after(sent_ts)
@@ -342,10 +350,20 @@ class TaskManager(object):
             state = payload.get("state", "")
             msg = payload.get("message", "")
             if state == "done":
-                extra_cid = payload.get("class_id", None)
-                if extra_cid is not None and int(extra_cid) != int(expected_final_class_id):
-                    # State done for unexpected class_id: treat as failure to avoid wrong step completion.
-                    return False, {"type": "抓取失败", "payload": payload, "msg": "done for unexpected class_id"}
+                extra_pick = payload.get("pick_digit", payload.get("class_id", None))
+                if extra_pick is not None and int(extra_pick) != int(expected_pick_digit):
+                    return False, {
+                        "type": "抓取失败",
+                        "payload": payload,
+                        "msg": "done for unexpected pick_digit",
+                    }
+                extra_place = payload.get("place_grid", None)
+                if extra_place is not None and int(extra_place) != int(expected_place_grid):
+                    return False, {
+                        "type": "抓取失败",
+                        "payload": payload,
+                        "msg": "done for unexpected place_grid",
+                    }
                 return True, payload
 
             if state in ("failed", "rejected"):
@@ -492,8 +510,8 @@ class TaskManager(object):
             )
             return False
 
-        # expected_final_class_id is place_grid (must be equal to pick_digit)
         pick_digit = int(step["pick_digit"])
+        place_grid = int(step["place_grid"])
 
         # 2) WAIT_STABLE_TARGET
         ok_stable, stable_targets_snapshot = self.wait_for_stable_pick(pick_digit)
@@ -514,12 +532,40 @@ class TaskManager(object):
 
         # 3) SEND_PICK_AND_PLACE_COMMAND
         sent_ts = time.time()
-        cmd = Int32()
-        cmd.data = int(expected_final_class_id)
-        self.command_pub.publish(cmd)
+        if self.use_structured_task_command:
+            cmd = String()
+            cmd.data = json.dumps(
+                {
+                    "pick_digit": pick_digit,
+                    "place_grid": place_grid,
+                    "source": "task_manager",
+                },
+                ensure_ascii=True,
+            )
+            self.task_command_pub.publish(cmd)
+        else:
+            if pick_digit != place_grid:
+                self.report_failure(
+                    failure_type="不可放置失败",
+                    step=step,
+                    step_idx_for_print=step_idx_for_print,
+                    final_class_id=expected_final_class_id,
+                    stable_targets_snapshot=stable_targets_snapshot,
+                    pick_target=pick_target,
+                    status_payload={
+                        "state": "rejected",
+                        "message": "legacy Int32 command requires pick_digit == place_grid",
+                    },
+                )
+                return False
+            cmd = Int32()
+            cmd.data = int(expected_final_class_id)
+            self.command_pub.publish(cmd)
 
         # 4) WAIT_GRASP_STATUS_DONE
-        ok_done, payload_or_err = self.wait_for_grasp_done(expected_final_class_id, sent_ts)
+        ok_done, payload_or_err = self.wait_for_grasp_done(
+            pick_digit, place_grid, sent_ts
+        )
         if not ok_done:
             failure_type = payload_or_err.get("type", "抓取失败")
             status_payload = payload_or_err.get("payload", None)
@@ -677,15 +723,14 @@ class TaskManager(object):
                     rospy.signal_shutdown("completed_with_skips")
                     return
 
-            # Mapping rule: place_grid == class_id, and compatible => pick_digit == place_grid
+            # Structured command path supports pick_digit and place_grid separately.
             expected_final_class_id = int(current_step["place_grid"])
 
             rospy.loginfo(
-                "Executing step: step_idx=%d pick_digit=%d place_grid=%d -> final_class_id=%d",
+                "Executing step: step_idx=%d pick_digit=%d place_grid=%d",
                 step_idx_for_print,
                 int(current_step["pick_digit"]),
                 int(current_step["place_grid"]),
-                expected_final_class_id,
             )
 
             ok = self.execute_step(current_step, step_idx_for_print, expected_final_class_id)
@@ -713,4 +758,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
