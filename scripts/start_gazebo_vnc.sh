@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ ! -f /.dockerenv ]; then
+  cat >&2 <<'EOF'
+This script must run inside the Docker container.
+
+From the host, start and enter the container first:
+
+  ./scripts/start_gazebo_docker.sh
+
+Then run inside the container:
+
+  /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
+
+EOF
+  exit 1
+fi
+
 DISPLAY_NUM="${GAZEBO_VNC_DISPLAY:-:99}"
 GEOMETRY="${GAZEBO_VNC_GEOMETRY:-1280x800x24}"
 VNC_PORT="${GAZEBO_VNC_PORT:-5900}"
@@ -11,7 +27,31 @@ SPAWN_OBSTACLES="${GAZEBO_SPAWN_OBSTACLES:-false}"
 PAUSED="${GAZEBO_PAUSED:-false}"
 GUI="${GAZEBO_GUI:-false}"
 VIRTUAL_WRIST_CAMERA="${GAZEBO_VIRTUAL_WRIST_CAMERA:-true}"
+ENABLE_GAZEBO_WRIST_CAMERA="${GAZEBO_ENABLE_GAZEBO_WRIST_CAMERA:-false}"
 AUTO_IMAGE_VIEWER="${GAZEBO_AUTO_IMAGE_VIEWER:-true}"
+ALLOW_UNSTABLE_REAL_CAMERA="${GAZEBO_ALLOW_UNSTABLE_REAL_CAMERA:-false}"
+
+if [ "$ENABLE_GAZEBO_WRIST_CAMERA" = "true" ] && [ "$ALLOW_UNSTABLE_REAL_CAMERA" != "true" ]; then
+  cat >&2 <<'EOF'
+Gazebo's real wrist camera is not supported on the VNC/Xvfb route by default.
+It often crashes Gazebo 7 because the camera sensor uses the rendering stack.
+
+Use one of these instead:
+
+  1. Stable VNC route with virtual wrist camera:
+     GAZEBO_VIRTUAL_WRIST_CAMERA=true /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
+
+  2. Real Gazebo wrist camera via the host GPU/X11 route:
+     ./scripts/start_gazebo_docker_gpu.sh
+     roslaunch ur5_notebook assignment_env.launch virtual_wrist_camera:=false enable_gazebo_wrist_camera:=true gui:=true
+
+If you still want to try the unstable VNC real-camera route, set:
+
+  GAZEBO_ALLOW_UNSTABLE_REAL_CAMERA=true
+
+EOF
+  exit 1
+fi
 
 export DISPLAY="$DISPLAY_NUM"
 export LIBGL_ALWAYS_SOFTWARE=1
@@ -54,7 +94,7 @@ fi
 
 echo "Gazebo VNC display is running on container port $VNC_PORT."
 echo "Docker Compose maps it to host port 5901 by default: vncviewer localhost:5901"
-echo "Gazebo GUI: $GUI, virtual wrist camera: $VIRTUAL_WRIST_CAMERA"
+echo "Gazebo GUI: $GUI, virtual wrist camera: $VIRTUAL_WRIST_CAMERA, Gazebo wrist camera: $ENABLE_GAZEBO_WRIST_CAMERA"
 echo "To view images in another container shell: export DISPLAY=$DISPLAY_NUM && rqt_image_view /ur5/wrist_camera/image_raw"
 
 if [ "$AUTO_IMAGE_VIEWER" = "true" ] && ! pgrep -x rqt_image_view >/dev/null 2>&1; then
@@ -70,4 +110,5 @@ roslaunch ur5_notebook assignment_env.launch \
   randomize:="$RANDOMIZE" \
   seed:="$SEED" \
   spawn_obstacles:="$SPAWN_OBSTACLES" \
-  virtual_wrist_camera:="$VIRTUAL_WRIST_CAMERA"
+  virtual_wrist_camera:="$VIRTUAL_WRIST_CAMERA" \
+  enable_gazebo_wrist_camera:="$ENABLE_GAZEBO_WRIST_CAMERA"

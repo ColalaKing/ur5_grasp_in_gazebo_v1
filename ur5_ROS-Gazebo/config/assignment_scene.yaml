@@ -28,3 +28,4 @@ grid_plate_height: 0.004
 randomize: true
 seed: 0
 spawn_obstacles: false
+spawn_fruits: false

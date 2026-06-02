@@ -64,7 +64,13 @@ newgrp docker
 cd ~/isaacsim/ur5_grasp_in_gazebo
 ```
 
-如果你的仓库在其他路径，进入自己的仓库根目录即可。
+如果你的仓库在 `Projects` 目录，使用：
+
+```bash
+cd ~/isaacsim/Projects/ur5_grasp_in_gazebo
+```
+
+总之进入包含 `docker-compose.yml` 的仓库根目录即可。
 
 ## 启动并进入容器
 
@@ -124,6 +130,8 @@ GAZEBO_GUI=true /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
 GAZEBO_VIRTUAL_WRIST_CAMERA=false /root/arm_ws/src/ur5_grasp_in_gazebo/scripts/start_gazebo_vnc.sh
 ```
 
+VNC/Xvfb 路线默认使用备用虚拟腕部相机。真实 Gazebo 腕部相机需要 Gazebo 渲染管线，在 Gazebo7 + Xvfb/软件渲染下容易导致 `gzclient` 或 `gzserver` abort，因此脚本默认会阻止 `GAZEBO_ENABLE_GAZEBO_WRIST_CAMERA=true`。如果需要真实腕部相机，推荐使用 GPU/X11 路线。
+
 默认 Docker Compose 把容器内 `5900` 映射到宿主机 `5901`。如果要换端口，需要同步修改 `docker-compose.yml` 的端口映射和脚本的 `GAZEBO_VNC_PORT`。
 
 ```bash
@@ -153,6 +161,23 @@ sudo systemctl restart docker
 ./scripts/start_gazebo_docker_gpu.sh
 ```
 
+如果脚本没有执行权限，也可以：
+
+```bash
+bash scripts/start_gazebo_docker_gpu.sh
+```
+
+GPU 路线会叠加 `docker-compose.yml`、`docker-compose.gpu.yml` 和
+`docker-compose.x11-gpu.yml`。其中 `docker-compose.x11-gpu.yml` 负责把宿主机
+`/tmp/.X11-unix` 挂进容器，并传入 `DISPLAY` 和 NVIDIA GLX 相关环境变量。因此这个脚本应在宿主机图形桌面会话中运行，而不是在容器里运行。
+
+启动前可在宿主机确认：
+
+```bash
+echo $DISPLAY
+ls -l /tmp/.X11-unix
+```
+
 进入容器后可检查 GPU/OpenGL：
 
 ```bash
@@ -160,7 +185,14 @@ nvidia-smi
 glxinfo -B
 ```
 
-`glxinfo -B` 中应看到 NVIDIA renderer。如果显示 `swrast`，说明 GPU OpenGL 没接好，可以先改用 CPU 路线。
+`glxinfo -B` 中应看到 NVIDIA renderer，例如：
+
+```bash
+OpenGL vendor string: NVIDIA Corporation
+OpenGL renderer string: NVIDIA RTX A6000/PCIe/SSE2
+```
+
+如果容器中 `/tmp/.X11-unix` 不存在，或 `glxinfo -B` 报 `unable to open display`，说明宿主机 X11 socket 没挂进容器或 X11 权限未放行。重新从宿主机运行 `./scripts/start_gazebo_docker_gpu.sh`。如果显示 `llvmpipe`、`swrast` 或 `Accelerated: no`，说明当前是软件渲染，可以先改用 CPU/VNC 路线，或检查 NVIDIA Container Toolkit 与 X11 配置。
 
 
 ## 编译工作区
@@ -211,13 +243,23 @@ roslaunch ur5_notebook assignment_env.launch gui:=true randomize:=false
 固定布局适合视觉、坐标转换和演示录屏前调试。
 建议只手动拖动方块。格子、桌面和机械臂是定位与控制基准，拖动它们会导致目标格子坐标、抓取高度或 MoveIt 当前状态不一致。
 
-### 3. 开启可选障碍物
+### 3. 开启可选障碍物/干扰项
 
 ```bash
 roslaunch ur5_notebook assignment_env.launch gui:=true randomize:=true spawn_obstacles:=true
 ```
 
-障碍物只作为选做环境元素。若控制端要做避障，还需要把障碍物同步加入 MoveIt Planning Scene。
+```bash
+roslaunch ur5_notebook assignment_env.launch gui:=true randomize:=true spawn_fruits:=true
+```
+
+也可以和障碍物同时开启：
+
+```bash
+roslaunch ur5_notebook assignment_env.launch gui:=true randomize:=true spawn_obstacles:=true spawn_fruits:=true
+```
+
+障碍物和干扰项只作为选做环境元素。若控制端要做避障，还需要把障碍物同步加入 MoveIt Planning Scene。
 
 ### 4. 查看腕部相机话题
 
@@ -238,6 +280,14 @@ rostopic list | grep -E "wrist_camera|camera"
 /ur5/wrist_camera/image_raw
 ```
 
+注意：目录名是 `ur5_ROS-Gazebo`，但 ROS package 名是 `ur5_notebook`。启动 launch 时应使用：
+
+```bash
+roslaunch ur5_notebook assignment_env.launch
+```
+
+而不是 `roslaunch ur5_ROS-Gazebo ...`。
+
 查看图像频率：
 
 ```bash
@@ -250,11 +300,70 @@ rostopic hz /ur5/wrist_camera/image_raw
 rostopic echo -n 1 /ur5/wrist_camera/camera_info
 ```
 
-如需打开图像窗口，先保证这个终端也使用 VNC 的显示号：
+`rqt_image_view /ur5/wrist_camera/image_raw` 只是查看图像话题，不决定图像来源。要确认当前是否是真实 Gazebo 腕部相机，使用：
+
+```bash
+rostopic info /ur5/wrist_camera/image_raw
+```
+
+如果 publisher 是 `/gazebo`，说明当前是真实 Gazebo 相机插件发布的腕部相机图像：
+
+```bash
+Publishers:
+ * /gazebo
+```
+
+如果 publisher 是 `/virtual_wrist_camera`，说明当前使用的是备用虚拟腕部相机：
+
+```bash
+Publishers:
+ * /virtual_wrist_camera
+```
+
+真实 Gazebo 腕部相机的启动方式：
+
+```bash
+roslaunch ur5_notebook assignment_env.launch \
+  virtual_wrist_camera:=false \
+  enable_gazebo_wrist_camera:=true \
+  gui:=true
+```
+
+真实 Gazebo 腕部相机推荐在 GPU/X11 路线下使用。VNC/Xvfb 路线默认只支持备用虚拟腕部相机；强行开启真实相机可能触发 Gazebo7 渲染崩溃。
+
+备用虚拟腕部相机的默认启动方式：
+
+```bash
+roslaunch ur5_notebook assignment_env.launch
+```
+
+如需打开图像窗口，在 CPU/VNC 路线下先保证这个终端也使用 VNC 的显示号：
 
 ```bash
 export DISPLAY=:99
 rqt_image_view /ur5/wrist_camera/image_raw
+```
+
+在 GPU/X11 路线下，容器通常已经继承宿主机 `DISPLAY`，不需要改成 `:99`：
+
+```bash
+echo $DISPLAY
+rqt_image_view /ur5/wrist_camera/image_raw
+```
+
+如果 `rqt_image_view` 报 D-Bus 或 `/etc/machine-id` 为空，可在容器内修复一次：
+
+```bash
+rm -f /etc/machine-id
+dbus-uuidgen > /etc/machine-id
+mkdir -p /var/lib/dbus
+cp /etc/machine-id /var/lib/dbus/machine-id
+```
+
+也可以使用更轻量的 `image_view`：
+
+```bash
+rosrun image_view image_view image:=/ur5/wrist_camera/image_raw
 ```
 
 当前主接口仍是腕部相机话题。`assignment_env.launch` 默认启用 `virtual_wrist_camera:=true`，用于绕过 Mac Docker/Rosetta 下 Gazebo7 相机传感器注册但不吐帧的问题；换到 Linux 原生或 GPU 环境后，如果真实 Gazebo 相机可以稳定发布帧，可用 `virtual_wrist_camera:=false` 关闭备用发布器。`assignment_env.launch` 也默认会发送一组观察姿态，让相机尽量正对桌面方块；如果后续运动规划同学需要完全手动控制机械臂，可以关闭：
