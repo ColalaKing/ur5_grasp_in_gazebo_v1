@@ -8,6 +8,7 @@
   <arg name="randomize" default="true"/>
   <arg name="seed" default="0"/>
   <arg name="spawn_obstacles" default="false"/>
+  <arg name="spawn_fruits" default="false"/>
   <arg name="move_to_view_pose" default="true"/>
   <arg name="virtual_wrist_camera" default="true"/>
   <arg name="virtual_camera_rate" default="10.0"/>
@@ -63,6 +64,7 @@
     <param name="randomize" value="$(arg randomize)"/>
     <param name="seed" value="$(arg seed)"/>
     <param name="spawn_obstacles" value="$(arg spawn_obstacles)"/>
+    <param name="spawn_fruits" value="$(arg spawn_fruits)"/>
   </node>
 
   <node if="$(arg move_to_view_pose)" name="wrist_camera_view_pose"

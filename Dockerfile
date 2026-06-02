@@ -56,8 +56,8 @@ RUN apt-get update && apt-get install -y \
 # Ubuntu 16.04's python-opencv is OpenCV 2.4. Add a Python 2 compatible
 # OpenCV 4 wheel so the ROS wrapper and traditional baseline share predictable
 # image encoding, contour, and drawing behavior.
-RUN pip install --no-cache-dir --upgrade pip==20.3.4 setuptools==44.1.1 && \
-    pip install --no-cache-dir --only-binary=:all: wheel==0.37.1 opencv-python-headless==4.1.2.30
+RUN pip --default-timeout=120 install --no-cache-dir --upgrade pip==20.3.4 setuptools==44.1.1 && \
+    pip --default-timeout=120 install --retries 10 --no-cache-dir --only-binary=:all: wheel==0.37.1 opencv-python-headless==4.1.2.30
 
 ENV CONDA_DIR=/opt/miniconda
 ENV MINICONDA_VERSION=py310_23.11.0-2
@@ -72,10 +72,15 @@ ENV MPLCONFIGDIR=/tmp/matplotlib
 # Pin the installer: current "latest" Miniconda requires GLIBC 2.28, while
 # Ubuntu 16.04 in ROS Kinetic provides GLIBC 2.23.
 RUN curl -fL --retry 5 --retry-delay 3 \
-      "https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" \
+      "https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" \
       -o /tmp/miniconda.sh && \
     bash /tmp/miniconda.sh -b -p "$CONDA_DIR" && \
     rm -f /tmp/miniconda.sh && \
+    "$CONDA_DIR/bin/conda" config --system --set remote_connect_timeout_secs 30 && \
+    "$CONDA_DIR/bin/conda" config --system --set remote_read_timeout_secs 120 && \
+    "$CONDA_DIR/bin/conda" config --system --set remote_max_retries 10 && \
+    "$CONDA_DIR/bin/conda" config --system --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main && \
+    "$CONDA_DIR/bin/conda" config --system --set show_channel_urls yes && \
     "$CONDA_DIR/bin/conda" create -y -p /opt/yolo_py python=3.10 pip && \
     /opt/yolo_py/bin/python -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
     /opt/yolo_py/bin/python -m pip install --no-cache-dir \

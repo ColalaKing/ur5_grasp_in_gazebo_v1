@@ -43,12 +43,13 @@ fi
 
 if command -v xhost >/dev/null 2>&1; then
   xhost +local:root >/dev/null || echo "Warning: xhost failed; check DISPLAY/X11 permissions if Gazebo GUI cannot open."
+  xhost +local:docker >/dev/null || true
 fi
 
 if "$DOCKER" compose version >/dev/null 2>&1; then
-  "$DOCKER" compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build ur5_grasp
-  "$DOCKER" compose -f docker-compose.yml -f docker-compose.gpu.yml exec ur5_grasp bash
+  "$DOCKER" compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.x11-gpu.yml up -d --build ur5_grasp
+  "$DOCKER" compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.x11-gpu.yml exec ur5_grasp bash
 else
-  docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build ur5_grasp
-  docker-compose -f docker-compose.yml -f docker-compose.gpu.yml exec ur5_grasp bash
+  docker-compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.x11-gpu.yml up -d --build ur5_grasp
+  docker-compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.x11-gpu.yml exec ur5_grasp bash
 fi
