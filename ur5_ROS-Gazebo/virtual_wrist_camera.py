@@ -29,6 +29,12 @@ BLOCK_COLORS = {
     9: (184, 82, 122),
 }
 
+FRUIT_COLORS = {
+    "fruit_apple": (28, 38, 224),
+    "fruit_pear": (52, 174, 135),
+    "fruit_banana": (28, 205, 245),
+}
+
 
 class VirtualWristCamera(object):
     """Fallback image source for Docker/Mac Gazebo camera rendering issues."""
@@ -61,6 +67,7 @@ class VirtualWristCamera(object):
         self.margin = float(rospy.get_param("~view_margin_px", 30.0))
         self.draw_all_digits = self.as_bool(rospy.get_param("~draw_all_digits", True))
         self.draw_target_grid = self.as_bool(rospy.get_param("~draw_target_grid", True))
+        self.draw_fruits = self.as_bool(rospy.get_param("~draw_fruits", True))
 
         self.table_x = float(rospy.get_param("~table_x", 0.25))
         self.table_y = float(rospy.get_param("~table_y", 0.0))
@@ -191,6 +198,89 @@ class VirtualWristCamera(object):
         cv2.polylines(image, [points], True, (245, 245, 245), 2)
         self.draw_digit_segments(image, digit, (u, v), w, h, yaw)
 
+    def draw_fruit(self, image, name, pose):
+        if name not in FRUIT_COLORS:
+            return
+        u, v = self.world_to_pixel(pose.position.x, pose.position.y)
+        quat = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
+        yaw = tft.euler_from_quaternion(quat)[2]
+
+        if name == "fruit_apple":
+            radius = int(round(self.size_to_pixels(0.060, 0.060)[0] * 0.5))
+            center = (int(round(u)), int(round(v)))
+            cv2.circle(image, center, radius, FRUIT_COLORS[name], -1)
+            cv2.circle(image, center, radius, (245, 245, 245), 2)
+            cv2.circle(
+                image,
+                (center[0] - radius // 3, center[1] - radius // 3),
+                max(2, radius // 5),
+                (90, 105, 245),
+                -1,
+            )
+            cv2.line(
+                image,
+                (center[0], center[1] - radius),
+                (center[0] + radius // 4, center[1] - radius - radius // 2),
+                (24, 58, 92),
+                max(2, radius // 7),
+                cv2.LINE_AA,
+            )
+            cv2.ellipse(
+                image,
+                (center[0] + radius // 2, center[1] - radius),
+                (max(4, radius // 2), max(2, radius // 4)),
+                -25,
+                0,
+                360,
+                (35, 135, 42),
+                -1,
+            )
+        elif name == "fruit_pear":
+            radius = int(round(self.size_to_pixels(0.065, 0.065)[0] * 0.5))
+            center = (int(round(u)), int(round(v)))
+            cv2.circle(image, (center[0], center[1] + radius // 5), radius, FRUIT_COLORS[name], -1)
+            cv2.circle(image, (center[0], center[1] - radius // 2), int(radius * 0.65), FRUIT_COLORS[name], -1)
+            cv2.circle(image, (center[0], center[1] + radius // 5), radius, (245, 245, 245), 2)
+            cv2.circle(image, (center[0], center[1] - radius // 2), int(radius * 0.65), (245, 245, 245), 2)
+            cv2.line(
+                image,
+                (center[0], center[1] - radius),
+                (center[0] + radius // 5, center[1] - radius - radius // 2),
+                (22, 52, 86),
+                max(2, radius // 8),
+                cv2.LINE_AA,
+            )
+        elif name == "fruit_banana":
+            length_px, width_px = self.size_to_pixels(0.090, 0.035)
+            points = []
+            for index in range(9):
+                t = index / 8.0
+                local_x = (t - 0.5) * length_px
+                local_y = math.sin((t - 0.5) * math.pi) * width_px * 0.45
+                cos_yaw = math.cos(yaw)
+                sin_yaw = math.sin(yaw)
+                px = u + local_x * cos_yaw - local_y * sin_yaw
+                py = v - (local_x * sin_yaw + local_y * cos_yaw)
+                points.append((int(round(px)), int(round(py))))
+            cv2.polylines(
+                image,
+                [np.array(points, dtype=np.int32)],
+                False,
+                FRUIT_COLORS[name],
+                max(8, int(round(width_px))),
+                cv2.LINE_AA,
+            )
+            cv2.polylines(
+                image,
+                [np.array(points, dtype=np.int32)],
+                False,
+                (250, 235, 90),
+                max(4, int(round(width_px * 0.45))),
+                cv2.LINE_AA,
+            )
+            for point in (points[0], points[-1]):
+                cv2.circle(image, point, max(3, int(round(width_px * 0.25))), (30, 60, 95), -1)
+
     def draw_digit_segments(self, image, digit, center, block_w, block_h, yaw):
         patch_size = 96
         patch = np.zeros((patch_size, patch_size), dtype=np.uint8)
@@ -301,6 +391,9 @@ class VirtualWristCamera(object):
                 self.draw_grid(image, name, pose)
         for name, pose in model_poses:
             self.draw_block(image, name, pose)
+        if self.draw_fruits:
+            for name, pose in model_poses:
+                self.draw_fruit(image, name, pose)
         return image
 
     def make_camera_info(self, stamp):

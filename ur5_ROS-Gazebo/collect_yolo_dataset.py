@@ -319,7 +319,8 @@ class YoloDatasetCollector(object):
                     break
             if not accepted:
                 rospy.logwarn_throttle(
-                    3.0, "Falling back to grid pose while randomizing block %d", index
+                    3.0,
+                    "Falling back to grid pose while randomizing block %d" % index,
                 )
             poses.append((x, y, z, yaw))
         return poses

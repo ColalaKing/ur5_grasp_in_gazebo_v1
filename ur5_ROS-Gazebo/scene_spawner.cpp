@@ -241,7 +241,7 @@ std::string makeAppleSdf() {
   const double leaf_d = 0.008;
   std::stringstream ss;
   ss << "<sdf version='1.6'><model name='fruit_apple'>"
-     << "<static>false</static><link name='link'>"
+     << "<static>true</static><link name='link'>"
      << "<inertial><pose>0 0 " << body_r << " 0 0 0</pose>"
      << "<mass>" << mass << "</mass><inertia>"
      << "<ixx>" << inertia << "</ixx><iyy>" << inertia << "</iyy>"
@@ -273,7 +273,7 @@ std::string makePearSdf() {
   const double stem_h = 0.015;
   std::stringstream ss;
   ss << "<sdf version='1.6'><model name='fruit_pear'>"
-     << "<static>false</static><link name='link'>"
+     << "<static>true</static><link name='link'>"
      << "<inertial><pose>0 0 " << bottom_r << " 0 0 0</pose>"
      << "<mass>" << mass << "</mass><inertia>"
      << "<ixx>" << inertia << "</ixx><iyy>" << inertia << "</iyy>"
@@ -313,7 +313,7 @@ std::string makeBananaSdf() {
   const double tip_len = 0.008;
   std::stringstream ss;
   ss << "<sdf version='1.6'><model name='fruit_banana'>"
-     << "<static>false</static><link name='link'>"
+     << "<static>true</static><link name='link'>"
      << "<inertial><pose>0 0 " << base_z << " 0 1.5708 0</pose>"
      << "<mass>" << mass << "</mass><inertia>"
      << "<ixx>" << inertia_xx << "</ixx><iyy>" << inertia_xx << "</iyy>"

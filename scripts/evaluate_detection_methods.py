@@ -141,7 +141,68 @@ def read_labels(label_path: Path, shape) -> list[dict]:
     return labels
 
 
-def normalize_yolo_detections(result) -> list[dict]:
+def normalize_degrees(angle):
+    while angle >= 180.0:
+        angle -= 360.0
+    while angle < -180.0:
+        angle += 360.0
+    return float(angle)
+
+
+def estimate_yaw_deg(image, xmin, ymin, xmax, ymax, saturation_threshold=45, min_area=80.0):
+    """Estimate block yaw from the colored region inside a YOLO bbox."""
+
+    if image is None:
+        return 0.0
+    height, width = image.shape[:2]
+    xmin = max(0, min(width - 1, int(round(xmin))))
+    ymin = max(0, min(height - 1, int(round(ymin))))
+    xmax = max(0, min(width - 1, int(round(xmax))))
+    ymax = max(0, min(height - 1, int(round(ymax))))
+    if xmax <= xmin or ymax <= ymin:
+        return 0.0
+
+    roi = image[ymin : ymax + 1, xmin : xmax + 1]
+    if roi.size == 0:
+        return 0.0
+    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(
+        hsv,
+        np.array([0, saturation_threshold, 35], dtype=np.uint8),
+        np.array([179, 255, 255], dtype=np.uint8),
+    )
+    kernel = np.ones((3, 3), dtype=np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+    contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = contours[0] if len(contours) == 2 else contours[1]
+    if not contours:
+        return 0.0
+    contour = max(contours, key=cv2.contourArea)
+    if cv2.contourArea(contour) < min_area:
+        return 0.0
+
+    rect = cv2.minAreaRect(contour)
+    points = cv2.boxPoints(rect)
+    best_dx = 0.0
+    best_dy = 0.0
+    best_len = -1.0
+    for index in range(4):
+        p0 = points[index]
+        p1 = points[(index + 1) % 4]
+        dx = float(p1[0] - p0[0])
+        dy = float(p1[1] - p0[1])
+        length = dx * dx + dy * dy
+        if length > best_len:
+            best_dx = dx
+            best_dy = dy
+            best_len = length
+    if best_len <= 0.0:
+        return 0.0
+    image_angle = np.degrees(np.arctan2(best_dy, best_dx))
+    return normalize_degrees(-image_angle)
+
+
+def normalize_yolo_detections(result, image=None) -> list[dict]:
     detections = []
     names = getattr(result, "names", {}) or {}
     boxes = getattr(result, "boxes", None)
@@ -153,6 +214,7 @@ def normalize_yolo_detections(result) -> list[dict]:
         class_name = str(names.get(cls_index, cls_index))
         digits = "".join(ch for ch in class_name if ch.isdigit())
         class_id = int(digits) if digits else cls_index
+        yaw_deg = estimate_yaw_deg(image, xyxy[0], xyxy[1], xyxy[2], xyxy[3])
         detections.append(
             {
                 "class_id": class_id,
@@ -164,7 +226,7 @@ def normalize_yolo_detections(result) -> list[dict]:
                 "ymax": float(xyxy[3]),
                 "center_x": float((xyxy[0] + xyxy[2]) * 0.5),
                 "center_y": float((xyxy[1] + xyxy[3]) * 0.5),
-                "yaw_deg": 0.0,
+                "yaw_deg": yaw_deg,
             }
         )
     return detections
@@ -299,6 +361,19 @@ def draw_detections(image, labels, detections, title):
             cv2.LINE_AA,
         )
         cv2.circle(canvas, (int(det["center_x"]), int(det["center_y"])), 4, color, -1)
+        if "yaw_deg" in det:
+            yaw = np.radians(float(det.get("yaw_deg", 0.0)))
+            length = max(20.0, 0.5 * min(det["xmax"] - det["xmin"], det["ymax"] - det["ymin"]))
+            x1 = int(round(det["center_x"] + np.cos(yaw) * length))
+            y1 = int(round(det["center_y"] - np.sin(yaw) * length))
+            cv2.line(
+                canvas,
+                (int(det["center_x"]), int(det["center_y"])),
+                (x1, y1),
+                (0, 110, 255),
+                2,
+                cv2.LINE_AA,
+            )
     cv2.putText(canvas, title, (18, 34), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (30, 30, 30), 3)
     return canvas
 
@@ -408,7 +483,7 @@ def evaluate(args):
             device="cpu",
             verbose=False,
         )[0]
-        yolo_dets = normalize_yolo_detections(yolo_result)
+        yolo_dets = normalize_yolo_detections(yolo_result, image)
         yolo_ms = (time.perf_counter() - started) * 1000.0
 
         for name, detections, elapsed in (

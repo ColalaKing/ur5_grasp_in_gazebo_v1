@@ -1,0 +1,19 @@
+# YOLOv8 digit-block dataset with visible fruit distractors.
+# Fruits are intentionally unlabeled so the detector learns them as background.
+
+path: ur5_ROS-Gazebo/yolo
+train: data_fruits_train_static/train_fruits_static.txt
+val: data_fruits_eval_static/valid_fruits_static.txt
+test:
+
+names:
+  0: "0"
+  1: "1"
+  2: "2"
+  3: "3"
+  4: "4"
+  5: "5"
+  6: "6"
+  7: "7"
+  8: "8"
+  9: "9"

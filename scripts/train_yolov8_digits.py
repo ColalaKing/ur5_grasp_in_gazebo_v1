@@ -125,7 +125,71 @@ def write_absolute_image_list(source_list: Path, output_list: Path, dataset_root
 def prepare_data_yaml(data_path: Path) -> Path:
     data_path = data_path.resolve()
     if data_path != DEFAULT_DATA.resolve():
-        return data_path
+        try:
+            import yaml
+        except ImportError as exc:
+            raise SystemExit(
+                "PyYAML is required to prepare custom YOLOv8 data files: %s" % exc
+            )
+
+        config = yaml.safe_load(data_path.read_text()) or {}
+        dataset_root = Path(config.get("path", data_path.parent))
+        if not dataset_root.is_absolute():
+            root_relative = (ROOT / dataset_root).resolve()
+            yaml_relative = (data_path.parent / dataset_root).resolve()
+            dataset_root = root_relative if root_relative.exists() else yaml_relative
+
+        train_entry = config.get("train")
+        val_entry = config.get("val")
+        if not train_entry or not val_entry:
+            raise SystemExit(f"Custom data.yaml must define train and val: {data_path}")
+        if isinstance(train_entry, (list, tuple)) or isinstance(val_entry, (list, tuple)):
+            raise SystemExit("This trainer expects train/val to be text-file lists.")
+
+        train_list = Path(train_entry)
+        val_list = Path(val_entry)
+        if not train_list.is_absolute():
+            train_list = dataset_root / train_list
+        if not val_list.is_absolute():
+            val_list = dataset_root / val_list
+        if not train_list.exists() or not val_list.exists():
+            raise SystemExit(
+                "Expected split files are missing: "
+                f"{train_list} and/or {val_list}"
+            )
+
+        RUNTIME_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        runtime_train = RUNTIME_DATA_DIR / f"{data_path.stem}_train_abs.txt"
+        runtime_val = RUNTIME_DATA_DIR / f"{data_path.stem}_val_abs.txt"
+        runtime_yaml = RUNTIME_DATA_DIR / f"{data_path.stem}_runtime.yaml"
+        write_absolute_image_list(train_list, runtime_train, dataset_root)
+        write_absolute_image_list(val_list, runtime_val, dataset_root)
+
+        names = config.get("names") or {str(i): str(i) for i in range(10)}
+        if isinstance(names, list):
+            name_lines = [f'  {index}: "{name}"' for index, name in enumerate(names)]
+        else:
+            name_lines = [
+                f'  {int(key)}: "{value}"'
+                for key, value in sorted(
+                    names.items(), key=lambda item: int(item[0])
+                )
+            ]
+        runtime_yaml.write_text(
+            "\n".join(
+                [
+                    f"path: {dataset_root.as_posix()}",
+                    f"train: {runtime_train.as_posix()}",
+                    f"val: {runtime_val.as_posix()}",
+                    "test:",
+                    "names:",
+                ]
+                + name_lines
+                + [""]
+            )
+        )
+        print(f"Using runtime data YAML: {runtime_yaml}")
+        return runtime_yaml
 
     dataset_root = data_path.parent.resolve()
     train_list = dataset_root / "data" / "train_highres.txt"
