@@ -1,0 +1,55 @@
+<launch>
+  <arg name="task_table_yaml" default="$(find ur5_notebook)/config/task_table.yaml" />
+
+  <arg name="require_stable" default="true" />
+  <arg name="task_command_topic" default="/grasp/task_command" />
+  <arg name="use_structured_task_command" default="true" />
+
+  <!-- Extension 1: multi-target continuous pick & place -->
+  <arg name="enable_extension1_multi" default="true" />
+
+  <!-- Extension 7: simple scheduler (priority - alpha * distance) -->
+  <arg name="enable_extension7_scheduler" default="false" />
+  <arg name="alpha" default="0.6" />
+  <arg name="unreachable_policy" default="fail" />
+  <arg name="reach_radius_xy" default="0.80" />
+  <arg name="require_place_reachable" default="true" />
+  <arg name="spawn_offset_x" default="0.0" />
+  <arg name="spawn_offset_y" default="0.7" />
+
+  <arg name="stable_wait_timeout" default="20.0" />
+  <arg name="status_wait_timeout" default="90.0" />
+  <arg name="poll_hz" default="10.0" />
+  <arg name="inter_grasp_delay" default="5.0" />
+  <arg name="grid_origin_x" default="-0.25" />
+  <arg name="grid_origin_y" default="-0.22" />
+  <arg name="grid_spacing_x" default="0.18" />
+  <arg name="grid_spacing_y" default="0.18" />
+  <arg name="grid_cols" default="3" />
+
+  <node name="task_manager" pkg="ur5_notebook" type="task_manager.py" output="screen">
+    <!-- Load YAML under this node namespace -->
+    <rosparam command="load" file="$(arg task_table_yaml)" />
+
+    <param name="require_stable" value="$(arg require_stable)" />
+    <param name="task_command_topic" value="$(arg task_command_topic)" />
+    <param name="use_structured_task_command" value="$(arg use_structured_task_command)" />
+    <param name="enable_extension1_multi" value="$(arg enable_extension1_multi)" />
+    <param name="enable_extension7_scheduler" value="$(arg enable_extension7_scheduler)" />
+    <param name="alpha" value="$(arg alpha)" />
+    <param name="unreachable_policy" value="$(arg unreachable_policy)" />
+    <param name="reach_radius_xy" value="$(arg reach_radius_xy)" />
+    <param name="require_place_reachable" value="$(arg require_place_reachable)" />
+    <param name="spawn_offset_x" value="$(arg spawn_offset_x)" />
+    <param name="spawn_offset_y" value="$(arg spawn_offset_y)" />
+    <param name="grid_origin_x" value="$(arg grid_origin_x)" />
+    <param name="grid_origin_y" value="$(arg grid_origin_y)" />
+    <param name="grid_spacing_x" value="$(arg grid_spacing_x)" />
+    <param name="grid_spacing_y" value="$(arg grid_spacing_y)" />
+    <param name="grid_cols" value="$(arg grid_cols)" />
+    <param name="stable_wait_timeout" value="$(arg stable_wait_timeout)" />
+    <param name="status_wait_timeout" value="$(arg status_wait_timeout)" />
+    <param name="poll_hz" value="$(arg poll_hz)" />
+    <param name="inter_grasp_delay" value="$(arg inter_grasp_delay)" />
+  </node>
+</launch>

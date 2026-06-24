@@ -11,7 +11,7 @@
 #include <string>
 #include <std_msgs/Int8MultiArray.h>
 #include <gazebo_msgs/ModelStates.h>
-#include "/home/scjy/code/ur_ws/src/ur5_ROS-Gazebo/blocks_poses.h"
+#include "blocks_poses.h"
 
 // global variables
 int g_quantity;
@@ -112,6 +112,7 @@ int main(int argc, char** argv) {
     ros::Publisher poses_publisher
         = nh.advertise<ur5_notebook::blocks_poses>("blocks_poses", 1);
     ur5_notebook::blocks_poses current_poses_msg;
+    ros::Rate loop_rate(30);
 
     // publishing loop
     while (ros::ok()) {
@@ -130,6 +131,7 @@ int main(int argc, char** argv) {
             poses_publisher.publish(current_poses_msg);
         }
         ros::spinOnce();
+        loop_rate.sleep();
     }
     return 0;
 }

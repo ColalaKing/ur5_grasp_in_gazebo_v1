@@ -1,0 +1,33 @@
+# Demo B: scheduler run (Extension 7)
+# Fixed scene recommendation:
+#   assignment_env seed:=42
+#
+# Policy:
+#   - unreachable_policy:=skip
+#   - enable_extension7_scheduler:=true
+#   - score = priority - alpha * distance3D
+#
+# 连抓说明：
+#   priority 相同时调度会先抓更近的 5，第二步再抓 6 在 Gazebo 里常失败。
+#   若需稳定录「两个都成功」，请用 task_table_demo_sequence.yaml（顺序 6→5），
+#   或把 6 的 priority 设得明显高于 5（如 6:10, 5:4）让调度先抓 6。
+#
+# Notes:
+#   - distance3D uses pose_base (x,y,z).
+#   - digit 2 放置不可达，会被 skip（演示 skip 策略）。
+task_table:
+  - order: 1
+    pick_digit: 6
+    place_grid: 6
+    priority: 3
+
+  - order: 2
+    pick_digit: 2
+    place_grid: 2
+    priority: 9
+
+  - order: 3
+    pick_digit: 5
+    place_grid: 5
+    priority: 4
+

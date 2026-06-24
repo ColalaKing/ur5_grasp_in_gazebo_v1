@@ -1,0 +1,30 @@
+# Backups (累积调试备份，不进 Git)
+*.bak
+*.bak.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# ROS / catkin
+build/
+devel/
+install/
+*.swp
+
+# YOLO 训练产物（>100MB，已在 README 第 7 章说明）
+ur5_ROS-Gazebo/yolo/weights/*.pt
+ur5_ROS-Gazebo/yolo/data/
+runs/
+
+# Demo 视频源（保留 gif，不推 mp4）
+demos/*.mp4
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

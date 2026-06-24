@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="image_topic" default="/ur5/wrist_camera/image_raw"/>
+  <arg name="camera_info_topic" default="/ur5/wrist_camera/camera_info"/>
+  <arg name="classes" default="0,1,2,3,4,5,6,7,8,9"/>
+  <arg name="confidence_threshold" default="0.50"/>
+  <arg name="iou_threshold" default="0.45"/>
+  <arg name="confirm_frames" default="3"/>
+  <arg name="confirm_distance_px" default="35.0"/>
+  <arg name="show_window" default="false"/>
+  <arg name="publish_annotated" default="true"/>
+  <arg name="annotated_topic" default="/detection/annotated_image"/>
+  <arg name="input_size" default="512"/>
+  <arg name="max_detections" default="50"/>
+  <arg name="model_path" default="$(find ur5_notebook)/yolo/weights/best.pt"/>
+  <arg name="yolo_python" default="/opt/yolo_py/bin/python"/>
+  <arg name="worker_script" default="$(find ur5_notebook)/yolo/yolov8_worker.py"/>
+  <arg name="worker_timeout" default="2.0"/>
+  <arg name="worker_startup_timeout" default="30.0"/>
+  <arg name="jpeg_quality" default="90"/>
+  <arg name="min_color_ratio" default="0.10"/>
+  <arg name="saturation_threshold" default="45"/>
+
+  <node name="detection" pkg="ur5_notebook" type="detection.py" output="screen">
+    <param name="image_topic" value="$(arg image_topic)"/>
+    <param name="camera_info_topic" value="$(arg camera_info_topic)"/>
+    <param name="classes" value="$(arg classes)"/>
+    <param name="confidence_threshold" value="$(arg confidence_threshold)"/>
+    <param name="iou_threshold" value="$(arg iou_threshold)"/>
+    <param name="confirm_frames" value="$(arg confirm_frames)"/>
+    <param name="confirm_distance_px" value="$(arg confirm_distance_px)"/>
+    <param name="show_window" value="$(arg show_window)"/>
+    <param name="publish_annotated" value="$(arg publish_annotated)"/>
+    <param name="annotated_topic" value="$(arg annotated_topic)"/>
+    <param name="input_size" value="$(arg input_size)"/>
+    <param name="max_detections" value="$(arg max_detections)"/>
+    <param name="model_path" value="$(arg model_path)"/>
+    <param name="yolo_python" value="$(arg yolo_python)"/>
+    <param name="worker_script" value="$(arg worker_script)"/>
+    <param name="worker_timeout" value="$(arg worker_timeout)"/>
+    <param name="worker_startup_timeout" value="$(arg worker_startup_timeout)"/>
+    <param name="jpeg_quality" value="$(arg jpeg_quality)"/>
+    <param name="min_color_ratio" value="$(arg min_color_ratio)"/>
+    <param name="saturation_threshold" value="$(arg saturation_threshold)"/>
+  </node>
+</launch>

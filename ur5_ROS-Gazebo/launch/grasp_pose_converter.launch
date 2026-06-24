@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="detections_topic" default="/detection/results"/>
+  <arg name="camera_info_topic" default="/ur5/wrist_camera/camera_info"/>
+  <arg name="target_frame" default="base_link"/>
+  <arg name="stable_only" default="true"/>
+  <arg name="min_confidence" default="0.50"/>
+  <arg name="grasp_z_offset" default="0.015"/>
+  <arg name="approach_z_offset" default="0.10"/>
+  <arg name="scene_config" default="$(find ur5_notebook)/config/assignment_scene.yaml"/>
+
+  <node name="grasp_pose_converter" pkg="ur5_notebook"
+        type="grasp_pose_converter.py" output="screen">
+    <rosparam command="load" file="$(arg scene_config)"/>
+    <param name="detections_topic" value="$(arg detections_topic)"/>
+    <param name="camera_info_topic" value="$(arg camera_info_topic)"/>
+    <param name="target_frame" value="$(arg target_frame)"/>
+    <param name="stable_only" value="$(arg stable_only)"/>
+    <param name="min_confidence" value="$(arg min_confidence)"/>
+    <param name="grasp_z_offset" value="$(arg grasp_z_offset)"/>
+    <param name="approach_z_offset" value="$(arg approach_z_offset)"/>
+  </node>
+</launch>

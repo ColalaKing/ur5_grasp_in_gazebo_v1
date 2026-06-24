@@ -1,0 +1,10 @@
+.git
+build
+devel
+install
+logs
+*.bag
+*.log
+__pycache__
+*.pyc
+.gazebo

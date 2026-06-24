@@ -16,7 +16,7 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 class MoveItCartesianPath:
     def __init__(self):
         self.bridge = cv_bridge.CvBridge()
-        self.image_sub = rospy.Subscriber('/ur5/usbcam/image_raw', Image, self.image_callback)
+        self.image_sub = rospy.Subscriber('/ur5/wrist_camera/image_raw', Image, self.image_callback)
 
         rospy.init_node("moveit_cartesian_path", anonymous=False)
 

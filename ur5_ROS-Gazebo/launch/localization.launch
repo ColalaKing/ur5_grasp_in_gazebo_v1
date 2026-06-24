@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="scene_config" default="$(find ur5_notebook)/config/assignment_scene.yaml"/>
+  <arg name="detection_topic" default="/detection/results"/>
+  <arg name="camera_info_topic" default="/ur5/wrist_camera/camera_info"/>
+  <arg name="targets_topic" default="/localization/grasp_targets"/>
+  <arg name="debug_topic" default="/localization/debug"/>
+  <arg name="world_frame" default="world"/>
+  <arg name="base_frame" default="base_link"/>
+  <arg name="require_stable" default="true"/>
+  <arg name="view_padding" default="0.08"/>
+  <arg name="view_margin_px" default="30.0"/>
+  <arg name="draw_target_grid" default="true"/>
+  <arg name="camera_width" default="1280"/>
+  <arg name="camera_height" default="960"/>
+  <arg name="grasp_height_offset" default="0.0"/>
+
+  <node name="block_localization" pkg="ur5_notebook" type="block_localization.py"
+        output="screen">
+    <rosparam command="load" file="$(arg scene_config)"/>
+    <param name="detection_topic" value="$(arg detection_topic)"/>
+    <param name="camera_info_topic" value="$(arg camera_info_topic)"/>
+    <param name="targets_topic" value="$(arg targets_topic)"/>
+    <param name="debug_topic" value="$(arg debug_topic)"/>
+    <param name="world_frame" value="$(arg world_frame)"/>
+    <param name="base_frame" value="$(arg base_frame)"/>
+    <param name="require_stable" value="$(arg require_stable)"/>
+    <param name="view_padding" value="$(arg view_padding)"/>
+    <param name="view_margin_px" value="$(arg view_margin_px)"/>
+    <param name="draw_target_grid" value="$(arg draw_target_grid)"/>
+    <param name="camera_width" value="$(arg camera_width)"/>
+    <param name="camera_height" value="$(arg camera_height)"/>
+    <param name="grasp_height_offset" value="$(arg grasp_height_offset)"/>
+  </node>
+</launch>

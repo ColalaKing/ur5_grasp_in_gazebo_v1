@@ -1,0 +1,612 @@
+{
+  "summary": {
+    "average_task_time_sec": 18.77090196609497, 
+    "grasp_success_rate": 1.0, 
+    "planning_success_rate": 1.0, 
+    "recognition_success_rate": 1.0, 
+    "repetitions": 5, 
+    "target_class_id": 6
+  }, 
+  "trials": [
+    {
+      "grasp_success": true, 
+      "planning_success": true, 
+      "recognition_success": true, 
+      "stable_targets": {
+        "0": {
+          "confidence": 0.9870358109474182, 
+          "x": 0.3490491803278687, 
+          "y": -0.6014444444444444, 
+          "z": 0.021999999999999992
+        }, 
+        "1": {
+          "confidence": 0.9018388390541077, 
+          "x": 0.4503606557377048, 
+          "y": -0.6386944444444445, 
+          "z": 0.021999999999999992
+        }, 
+        "2": {
+          "confidence": 0.9930729269981384, 
+          "x": 0.5052377049180327, 
+          "y": -0.4408555555555554, 
+          "z": 0.021999999999999992
+        }, 
+        "3": {
+          "confidence": 0.9736999273300171, 
+          "x": 0.5373196721311474, 
+          "y": -0.6759444444444445, 
+          "z": 0.021999999999999992
+        }, 
+        "4": {
+          "confidence": 0.948753833770752, 
+          "x": 0.49004098360655735, 
+          "y": -0.5335666666666665, 
+          "z": 0.021999999999999992
+        }, 
+        "5": {
+          "confidence": 0.9714739918708801, 
+          "x": 0.4115245901639343, 
+          "y": -0.4516166666666666, 
+          "z": 0.021999999999999992
+        }, 
+        "6": {
+          "confidence": 0.9449564218521118, 
+          "x": 0.5845983606557376, 
+          "y": -0.5335666666666665, 
+          "z": 0.021999999999999992
+        }, 
+        "7": {
+          "confidence": 0.9417751431465149, 
+          "x": 0.595573770491803, 
+          "y": -0.4143666666666666, 
+          "z": 0.021999999999999992
+        }, 
+        "8": {
+          "confidence": 0.9874404668807983, 
+          "x": 0.6107704918032786, 
+          "y": -0.6105499999999999, 
+          "z": 0.021999999999999992
+        }, 
+        "9": {
+          "confidence": 0.9919716119766235, 
+          "x": 0.36677868852459006, 
+          "y": -0.6966388888888888, 
+          "z": 0.021999999999999992
+        }
+      }, 
+      "status_events": [
+        {
+          "_ts": 1780323287.170695, 
+          "class_id": 6, 
+          "confidence": 0.9449564218521118, 
+          "message": "moving to class 6", 
+          "state": "approaching"
+        }, 
+        {
+          "_ts": 1780323291.137902, 
+          "message": "pre-descend to class 6 top", 
+          "state": "descending"
+        }, 
+        {
+          "_ts": 1780323292.155937, 
+          "message": "slow contact onto class 6", 
+          "state": "contacting"
+        }, 
+        {
+          "_ts": 1780323292.574247, 
+          "message": "vacuum ON for class 6", 
+          "state": "vacuum_on"
+        }, 
+        {
+          "_ts": 1780323294.17981, 
+          "message": "lifting class 6", 
+          "state": "retreating"
+        }, 
+        {
+          "_ts": 1780323295.115866, 
+          "class_id": 6, 
+          "message": "moving digit 6 to grid 6", 
+          "state": "placing"
+        }, 
+        {
+          "_ts": 1780323305.715893, 
+          "class_id": 6, 
+          "message": "returning to sim view home pose", 
+          "state": "returning_home"
+        }, 
+        {
+          "_ts": 1780323305.968783, 
+          "class_id": 6, 
+          "message": "grasp complete for class 6", 
+          "placed": true, 
+          "state": "done"
+        }
+      ], 
+      "target_class_id": 6, 
+      "task_time_sec": 18.809202909469604, 
+      "terminal_message": "grasp complete for class 6", 
+      "terminal_state": "done", 
+      "trial": 1
+    }, 
+    {
+      "grasp_success": true, 
+      "planning_success": true, 
+      "recognition_success": true, 
+      "stable_targets": {
+        "0": {
+          "confidence": 0.9870358109474182, 
+          "x": 0.3490491803278687, 
+          "y": -0.6014444444444444, 
+          "z": 0.021999999999999992
+        }, 
+        "1": {
+          "confidence": 0.9018388390541077, 
+          "x": 0.4503606557377048, 
+          "y": -0.6386944444444445, 
+          "z": 0.021999999999999992
+        }, 
+        "2": {
+          "confidence": 0.9930729269981384, 
+          "x": 0.5052377049180327, 
+          "y": -0.4408555555555554, 
+          "z": 0.021999999999999992
+        }, 
+        "3": {
+          "confidence": 0.9736999273300171, 
+          "x": 0.5373196721311474, 
+          "y": -0.6759444444444445, 
+          "z": 0.021999999999999992
+        }, 
+        "4": {
+          "confidence": 0.948753833770752, 
+          "x": 0.49004098360655735, 
+          "y": -0.5335666666666665, 
+          "z": 0.021999999999999992
+        }, 
+        "5": {
+          "confidence": 0.9714739918708801, 
+          "x": 0.4115245901639343, 
+          "y": -0.4516166666666666, 
+          "z": 0.021999999999999992
+        }, 
+        "6": {
+          "confidence": 0.9449564218521118, 
+          "x": 0.5845983606557376, 
+          "y": -0.5335666666666665, 
+          "z": 0.021999999999999992
+        }, 
+        "7": {
+          "confidence": 0.9417751431465149, 
+          "x": 0.595573770491803, 
+          "y": -0.4143666666666666, 
+          "z": 0.021999999999999992
+        }, 
+        "8": {
+          "confidence": 0.9874404668807983, 
+          "x": 0.6107704918032786, 
+          "y": -0.6105499999999999, 
+          "z": 0.021999999999999992
+        }, 
+        "9": {
+          "confidence": 0.9919716119766235, 
+          "x": 0.36677868852459006, 
+          "y": -0.6966388888888888, 
+          "z": 0.021999999999999992
+        }
+      }, 
+      "status_events": [
+        {
+          "_ts": 1780323314.260315, 
+          "class_id": 6, 
+          "confidence": 0.9449564218521118, 
+          "message": "moving to class 6", 
+          "state": "approaching"
+        }, 
+        {
+          "_ts": 1780323317.94886, 
+          "message": "pre-descend to class 6 top", 
+          "state": "descending"
+        }, 
+        {
+          "_ts": 1780323318.950521, 
+          "message": "slow contact onto class 6", 
+          "state": "contacting"
+        }, 
+        {
+          "_ts": 1780323319.419702, 
+          "message": "vacuum ON for class 6", 
+          "state": "vacuum_on"
+        }, 
+        {
+          "_ts": 1780323320.989798, 
+          "message": "lifting class 6", 
+          "state": "retreating"
+        }, 
+        {
+          "_ts": 1780323321.878928, 
+          "class_id": 6, 
+          "message": "moving digit 6 to grid 6", 
+          "state": "placing"
+        }, 
+        {
+          "_ts": 1780323332.645362, 
+          "class_id": 6, 
+          "message": "returning to sim view home pose", 
+          "state": "returning_home"
+        }, 
+        {
+          "_ts": 1780323332.899473, 
+          "class_id": 6, 
+          "message": "grasp complete for class 6", 
+          "placed": true, 
+          "state": "done"
+        }
+      ], 
+      "target_class_id": 6, 
+      "task_time_sec": 18.69992208480835, 
+      "terminal_message": "grasp complete for class 6", 
+      "terminal_state": "done", 
+      "trial": 2
+    }, 
+    {
+      "grasp_success": true, 
+      "planning_success": true, 
+      "recognition_success": true, 
+      "stable_targets": {
+        "0": {
+          "confidence": 0.9870358109474182, 
+          "x": 0.3490491803278687, 
+          "y": -0.6014444444444444, 
+          "z": 0.021999999999999992
+        }, 
+        "1": {
+          "confidence": 0.9018388390541077, 
+          "x": 0.4503606557377048, 
+          "y": -0.6386944444444445, 
+          "z": 0.021999999999999992
+        }, 
+        "2": {
+          "confidence": 0.9930729269981384, 
+          "x": 0.5052377049180327, 
+          "y": -0.4408555555555554, 
+          "z": 0.021999999999999992
+        }, 
+        "3": {
+          "confidence": 0.9736999273300171, 
+          "x": 0.5373196721311474, 
+          "y": -0.6759444444444445, 
+          "z": 0.021999999999999992
+        }, 
+        "4": {
+          "confidence": 0.948753833770752, 
+          "x": 0.49004098360655735, 
+          "y": -0.5335666666666665, 
+          "z": 0.021999999999999992
+        }, 
+        "5": {
+          "confidence": 0.9714739918708801, 
+          "x": 0.4115245901639343, 
+          "y": -0.4516166666666666, 
+          "z": 0.021999999999999992
+        }, 
+        "6": {
+          "confidence": 0.9449564218521118, 
+          "x": 0.5845983606557376, 
+          "y": -0.5335666666666665, 
+          "z": 0.021999999999999992
+        }, 
+        "7": {
+          "confidence": 0.9417751431465149, 
+          "x": 0.595573770491803, 
+          "y": -0.4143666666666666, 
+          "z": 0.021999999999999992
+        }, 
+        "8": {
+          "confidence": 0.9874404668807983, 
+          "x": 0.6107704918032786, 
+          "y": -0.6105499999999999, 
+          "z": 0.021999999999999992
+        }, 
+        "9": {
+          "confidence": 0.9919716119766235, 
+          "x": 0.36677868852459006, 
+          "y": -0.6966388888888888, 
+          "z": 0.021999999999999992
+        }
+      }, 
+      "status_events": [
+        {
+          "_ts": 1780323341.290596, 
+          "class_id": 6, 
+          "confidence": 0.9449564218521118, 
+          "message": "moving to class 6", 
+          "state": "approaching"
+        }, 
+        {
+          "_ts": 1780323345.089383, 
+          "message": "pre-descend to class 6 top", 
+          "state": "descending"
+        }, 
+        {
+          "_ts": 1780323346.338106, 
+          "message": "slow contact onto class 6", 
+          "state": "contacting"
+        }, 
+        {
+          "_ts": 1780323346.779364, 
+          "message": "vacuum ON for class 6", 
+          "state": "vacuum_on"
+        }, 
+        {
+          "_ts": 1780323348.383217, 
+          "message": "lifting class 6", 
+          "state": "retreating"
+        }, 
+        {
+          "_ts": 1780323349.301508, 
+          "class_id": 6, 
+          "message": "moving digit 6 to grid 6", 
+          "state": "placing"
+        }, 
+        {
+          "_ts": 1780323356.531223, 
+          "class_id": 6, 
+          "message": "returning to sim view home pose", 
+          "state": "returning_home"
+        }, 
+        {
+          "_ts": 1780323359.573434, 
+          "class_id": 6, 
+          "message": "grasp complete for class 6", 
+          "placed": true, 
+          "state": "done"
+        }
+      ], 
+      "target_class_id": 6, 
+      "task_time_sec": 18.392998933792114, 
+      "terminal_message": "grasp complete for class 6", 
+      "terminal_state": "done", 
+      "trial": 3
+    }, 
+    {
+      "grasp_success": true, 
+      "planning_success": true, 
+      "recognition_success": true, 
+      "stable_targets": {
+        "0": {
+          "confidence": 0.9870358109474182, 
+          "x": 0.3490491803278687, 
+          "y": -0.6014444444444444, 
+          "z": 0.021999999999999992
+        }, 
+        "1": {
+          "confidence": 0.9018388390541077, 
+          "x": 0.4503606557377048, 
+          "y": -0.6386944444444445, 
+          "z": 0.021999999999999992
+        }, 
+        "2": {
+          "confidence": 0.9930729269981384, 
+          "x": 0.5052377049180327, 
+          "y": -0.4408555555555554, 
+          "z": 0.021999999999999992
+        }, 
+        "3": {
+          "confidence": 0.9736999273300171, 
+          "x": 0.5373196721311474, 
+          "y": -0.6759444444444445, 
+          "z": 0.021999999999999992
+        }, 
+        "4": {
+          "confidence": 0.948753833770752, 
+          "x": 0.49004098360655735, 
+          "y": -0.5335666666666665, 
+          "z": 0.021999999999999992
+        }, 
+        "5": {
+          "confidence": 0.9714739918708801, 
+          "x": 0.4115245901639343, 
+          "y": -0.4516166666666666, 
+          "z": 0.021999999999999992
+        }, 
+        "6": {
+          "confidence": 0.9449564218521118, 
+          "x": 0.5845983606557376, 
+          "y": -0.5335666666666665, 
+          "z": 0.021999999999999992
+        }, 
+        "7": {
+          "confidence": 0.9417751431465149, 
+          "x": 0.595573770491803, 
+          "y": -0.4143666666666666, 
+          "z": 0.021999999999999992
+        }, 
+        "8": {
+          "confidence": 0.9874404668807983, 
+          "x": 0.6107704918032786, 
+          "y": -0.6105499999999999, 
+          "z": 0.021999999999999992
+        }, 
+        "9": {
+          "confidence": 0.9919716119766235, 
+          "x": 0.36677868852459006, 
+          "y": -0.6966388888888888, 
+          "z": 0.021999999999999992
+        }
+      }, 
+      "status_events": [
+        {
+          "_ts": 1780323368.216695, 
+          "class_id": 6, 
+          "confidence": 0.9449564218521118, 
+          "message": "moving to class 6", 
+          "state": "approaching"
+        }, 
+        {
+          "_ts": 1780323372.258266, 
+          "message": "pre-descend to class 6 top", 
+          "state": "descending"
+        }, 
+        {
+          "_ts": 1780323373.185183, 
+          "message": "slow contact onto class 6", 
+          "state": "contacting"
+        }, 
+        {
+          "_ts": 1780323373.688802, 
+          "message": "vacuum ON for class 6", 
+          "state": "vacuum_on"
+        }, 
+        {
+          "_ts": 1780323375.335232, 
+          "message": "lifting class 6", 
+          "state": "retreating"
+        }, 
+        {
+          "_ts": 1780323376.226005, 
+          "class_id": 6, 
+          "message": "moving digit 6 to grid 6", 
+          "state": "placing"
+        }, 
+        {
+          "_ts": 1780323384.459225, 
+          "class_id": 6, 
+          "message": "returning to sim view home pose", 
+          "state": "returning_home"
+        }, 
+        {
+          "_ts": 1780323387.455231, 
+          "class_id": 6, 
+          "message": "grasp complete for class 6", 
+          "placed": true, 
+          "state": "done"
+        }
+      ], 
+      "target_class_id": 6, 
+      "task_time_sec": 19.349534034729004, 
+      "terminal_message": "grasp complete for class 6", 
+      "terminal_state": "done", 
+      "trial": 4
+    }, 
+    {
+      "grasp_success": true, 
+      "planning_success": true, 
+      "recognition_success": true, 
+      "stable_targets": {
+        "0": {
+          "confidence": 0.9870358109474182, 
+          "x": 0.3490491803278687, 
+          "y": -0.6014444444444444, 
+          "z": 0.021999999999999992
+        }, 
+        "1": {
+          "confidence": 0.9018388390541077, 
+          "x": 0.4503606557377048, 
+          "y": -0.6386944444444445, 
+          "z": 0.021999999999999992
+        }, 
+        "2": {
+          "confidence": 0.9930729269981384, 
+          "x": 0.5052377049180327, 
+          "y": -0.4408555555555554, 
+          "z": 0.021999999999999992
+        }, 
+        "3": {
+          "confidence": 0.9736999273300171, 
+          "x": 0.5373196721311474, 
+          "y": -0.6759444444444445, 
+          "z": 0.021999999999999992
+        }, 
+        "4": {
+          "confidence": 0.948753833770752, 
+          "x": 0.49004098360655735, 
+          "y": -0.5335666666666665, 
+          "z": 0.021999999999999992
+        }, 
+        "5": {
+          "confidence": 0.9714739918708801, 
+          "x": 0.4115245901639343, 
+          "y": -0.4516166666666666, 
+          "z": 0.021999999999999992
+        }, 
+        "6": {
+          "confidence": 0.9449564218521118, 
+          "x": 0.5845983606557376, 
+          "y": -0.5335666666666665, 
+          "z": 0.021999999999999992
+        }, 
+        "7": {
+          "confidence": 0.9417751431465149, 
+          "x": 0.595573770491803, 
+          "y": -0.4143666666666666, 
+          "z": 0.021999999999999992
+        }, 
+        "8": {
+          "confidence": 0.9874404668807983, 
+          "x": 0.6107704918032786, 
+          "y": -0.6105499999999999, 
+          "z": 0.021999999999999992
+        }, 
+        "9": {
+          "confidence": 0.9919716119766235, 
+          "x": 0.36677868852459006, 
+          "y": -0.6966388888888888, 
+          "z": 0.021999999999999992
+        }
+      }, 
+      "status_events": [
+        {
+          "_ts": 1780323396.030088, 
+          "class_id": 6, 
+          "confidence": 0.9449564218521118, 
+          "message": "moving to class 6", 
+          "state": "approaching"
+        }, 
+        {
+          "_ts": 1780323399.919935, 
+          "message": "pre-descend to class 6 top", 
+          "state": "descending"
+        }, 
+        {
+          "_ts": 1780323401.084284, 
+          "message": "slow contact onto class 6", 
+          "state": "contacting"
+        }, 
+        {
+          "_ts": 1780323401.618674, 
+          "message": "vacuum ON for class 6", 
+          "state": "vacuum_on"
+        }, 
+        {
+          "_ts": 1780323403.233006, 
+          "message": "lifting class 6", 
+          "state": "retreating"
+        }, 
+        {
+          "_ts": 1780323404.129417, 
+          "class_id": 6, 
+          "message": "moving digit 6 to grid 6", 
+          "state": "placing"
+        }, 
+        {
+          "_ts": 1780323414.392932, 
+          "class_id": 6, 
+          "message": "returning to sim view home pose", 
+          "state": "returning_home"
+        }, 
+        {
+          "_ts": 1780323414.612904, 
+          "class_id": 6, 
+          "message": "grasp complete for class 6", 
+          "placed": true, 
+          "state": "done"
+        }
+      ], 
+      "target_class_id": 6, 
+      "task_time_sec": 18.60285186767578, 
+      "terminal_message": "grasp complete for class 6", 
+      "terminal_state": "done", 
+      "trial": 5
+    }
+  ]
+}
